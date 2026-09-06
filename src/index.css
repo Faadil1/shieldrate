@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-night-950 text-neutral-200 antialiased;
+}
+
+@layer components {
+  .card {
+    @apply bg-night-850 border border-night-800 rounded-xl;
+  }
+  .btn-primary {
+    @apply bg-rate-500 text-black font-semibold rounded-lg px-6 py-3 text-sm transition hover:bg-rate-400 focus:outline-none;
+  }
+  .btn-secondary {
+    @apply bg-night-800 text-neutral-200 border border-night-700 rounded-lg px-6 py-3 text-sm font-medium transition hover:bg-night-700 focus:outline-none;
+  }
+  .badge-live {
+    @apply inline-flex items-center gap-1.5 bg-rate-900 text-rate-500 px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide;
+  }
+  .badge-live::before {
+    content: "";
+    @apply w-1.5 h-1.5 rounded-full bg-rate-500;
+  }
+  .proof-badge {
+    @apply inline-flex items-center gap-1.5 bg-rate-900 text-rate-500 px-4 py-2 rounded-lg text-[13px] font-semibold;
+  }
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium;
+  }
+  .status-badge::before {
+    content: "";
+    @apply w-1.5 h-1.5 rounded-full bg-current;
+  }
+  .status-badge.verified {
+    @apply bg-rate-900 text-rate-500;
+  }
+  .status-badge.rejected {
+    @apply bg-red-950/50 text-red-500;
+  }
+  .status-badge.pending {
+    @apply bg-night-800 text-mist-400;
+  }
+}

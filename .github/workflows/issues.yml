@@ -1,0 +1,30 @@
+# Shielding your issue checks
+
+name: Issue checks
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment on new issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = [
+              '## Thanks for filing an issue! 🙌',
+              'The maintainers will triage this shortly (usually within 72h).',
+              '',
+              '**Security issue?** Do **not** report it here — use the Security tab → *Report a vulnerability*, or email the maintainers directly (see [SECURITY.md](../../../SECURITY.md)).',
+              '',
+              'Remember to include the affected file (`contracts/`, `src/`, `tests/`), steps to reproduce, and your Environment (OS, Node version).',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });

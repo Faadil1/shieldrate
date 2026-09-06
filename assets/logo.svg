@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="96" viewBox="0 0 440 96" fill="none" role="img" aria-labelledby="title">
+  <title id="title">ShieldRate</title>
+  <rect x="0.5" y="0.5" width="439" height="95" rx="24" fill="#111111" stroke="#262626"/>
+  <circle cx="48" cy="48" r="42" stroke="#1a1a1a" stroke-width="2"/>
+  <circle cx="48" cy="48" r="34" stroke="#14532d" stroke-width="2"/>
+  <circle cx="48" cy="48" r="26" stroke="#1a1a1a" stroke-width="2"/>
+  <rect x="35" y="35" width="26" height="26" rx="8" fill="#14532d"/>
+  <path d="M48 41 L54.5 42.8 V49 C54.5 54.5 51.6 58.2 48 59.8 C44.4 58.2 41.5 54.5 41.5 49 V42.8 Z" fill="#22c55e"/>
+  <path d="M44.6 50.6 L47.4 53.4 L51.6 47.8" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="118" y="60" font-family="Inter, -apple-system, 'Segoe UI', sans-serif" font-size="40" font-weight="800" letter-spacing="-1" fill="#ffffff">shield<tspan fill="#22c55e">rate</tspan></text>
+</svg>

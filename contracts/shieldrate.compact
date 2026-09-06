@@ -1,0 +1,122 @@
+// ShieldRate — Compact contract
+// ZK reputation & income verification for Midnight.
+//
+// Dual-ledger model:
+//   ledger   — public verification booleans, job requirements, counters
+//   witness  — freelancer private income/rating/jobs data, NEVER uploaded
+//   circuit  — zero-knowledge proof generation (exported entry points)
+//
+// Only `{ user, passed, claim }` is disclosed on-chain. Raw income, rating and
+// job counts never touch the ledger.
+
+export verification;
+
+ledger {
+  // Public: verification results (employer-facing).
+  verifications: Map<Bytes<32>, Verification>;
+
+  // Public: per-job verification requirements.
+  job_requirements: Map<Bytes<32>, Bytes<32>>;
+
+  // Public: counter of all proofs ever generated.
+  total_verifications: Counter;
+
+  // Public: count of passed proofs (for portability scoring).
+  passed_verifications: Counter;
+}
+
+witness {
+  // Private: freelancer data. These live on the prover's device only.
+  freelancer_income(): Uint<64>;
+  freelancer_rating(): Uint<8>;
+  freelancer_completed_jobs(): Uint<32>;
+  wallet_secret(): Bytes<32>;
+}
+
+circuit {
+  // Generate proof: proves income > threshold, discloses only a boolean.
+  export generate_income_proof(threshold: Uint<64>): Verification {
+    const income = freelancer_income();
+    const passed = income > threshold;
+    const user_hash = persistent_hash<Bytes<32>>(wallet_secret());
+
+    verifications.insert(user_hash, {
+      user: disclose(user_hash),
+      claim: disclose("income"),
+      threshold: disclose(threshold),
+      passed: disclose(passed),
+      at: disclose(now_ms() / 1000),
+    });
+    total_verifications.increment();
+    if (passed) {
+      passed_verifications.increment();
+    }
+
+    return verifications.lookup(user_hash).unwrap();
+  }
+
+  // Generate proof: proves rating >= min_rating, discloses only a boolean.
+  export generate_rating_proof(min_rating: Uint<8>): Verification {
+    const rating = freelancer_rating();
+    const passed = rating >= min_rating;
+    const user_hash = persistent_hash<Bytes<32>>(wallet_secret());
+
+    verifications.insert(user_hash, {
+      user: disclose(user_hash),
+      claim: disclose("rating"),
+      threshold: disclose(min_rating),
+      passed: disclose(passed),
+      at: disclose(now_ms() / 1000),
+    });
+    total_verifications.increment();
+    if (passed) {
+      passed_verifications.increment();
+    }
+
+    return verifications.lookup(user_hash).unwrap();
+  }
+
+  // Generate proof: proves completed job count >= min_jobs, boolean only.
+  export generate_jobs_proof(min_jobs: Uint<32>): Verification {
+    const jobs = freelancer_completed_jobs();
+    const passed = jobs >= min_jobs;
+    const user_hash = persistent_hash<Bytes<32>>(wallet_secret());
+
+    verifications.insert(user_hash, {
+      user: disclose(user_hash),
+      claim: disclose("jobs"),
+      threshold: disclose(min_jobs),
+      passed: disclose(passed),
+      at: disclose(now_ms() / 1000),
+    });
+    total_verifications.increment();
+    if (passed) {
+      passed_verifications.increment();
+    }
+
+    return verifications.lookup(user_hash).unwrap();
+  }
+
+  // Verify: employer checks whether a freelancer passed a stored proof.
+  export verify_proof(user: Bytes<32>): Maybe<Verification> {
+    return verifications.lookup(user);
+  }
+
+  // Employers read a job requirement to know which proof to request.
+  export get_job_requirement(job_id: Bytes<32>): Maybe<Bytes<32>> {
+    return job_requirements.lookup(job_id);
+  }
+
+  // Employers post a job requirement referencing a proof claim.
+  export post_job_requirement(job_id: Bytes<32>, claim_requirement: Bytes<32>) {
+    job_requirements.insert(job_id, claim_requirement);
+  }
+}
+
+record Verification {
+  user: Bytes<32>;
+  claim: Bytes<32>;
+  threshold: Uint<64>;
+  passed: Bool;
+  at: Uint<64>;
+}
