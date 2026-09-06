@@ -29,16 +29,16 @@ on-chain in under two seconds.
 Built for **[Midnight Buildathon — Wave 1](https://app.akindo.io/wave-hacks/jaMZjqPOBsLXvjdG)**
 (3,500 USDT · part of a 12,500 USDT wave pool).
 
-## ✔ Project status
+## Project status
 
 | | |
 |---|---|
-| ✅ Contract | `contracts/shieldrate.compact` — `ledger` + `witness` + `circuit` |
-| ✅ Frontend | 5 screens, React + TypeScript + Tailwind, dark/green theme |
-| ✅ Wallet bridge | swap-point hooks for MidnightJS / Lace (`src/hooks/`) |
-| ✅ Tests | 8 tests passing (SHA-256 NIST vectors, witness/circuit logic) |
-| ✅ CI/CD | GitHub Actions: verify, tests, build, Pages deploy |
-| ✅ Docs | README, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, LICENSE |
+| ✓ Contract | `contracts/shieldrate.compact` — `ledger` + `witness` + `circuit` |
+| ✓ Frontend | 5 screens, React + TypeScript + Tailwind, dark/green theme |
+| ✓ Wallet bridge | swap-point hooks for MidnightJS / Lace (`src/hooks/`) |
+| ✓ Tests | 8 tests passing (SHA-256 NIST vectors, witness/circuit logic) |
+| ✓ CI/CD | GitHub Actions: verify, tests, build, Pages deploy |
+| ✓ Docs | README, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, LICENSE |
 
 ---
 
