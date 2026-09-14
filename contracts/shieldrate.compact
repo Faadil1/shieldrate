@@ -1,122 +1,285 @@
-// ShieldRate — Compact contract
-// ZK reputation & income verification for Midnight.
+// ShieldRate — Proof Integrity v1
+// Compact language 0.22–0.23 / toolchain 0.31.x target.
 //
-// Dual-ledger model:
-//   ledger   — public verification booleans, job requirements, counters
-//   witness  — freelancer private income/rating/jobs data, NEVER uploaded
-//   circuit  — zero-knowledge proof generation (exported entry points)
+// Integrity properties:
+// - issuer authenticity is verified in-circuit with a Schnorr attestation;
+// - arbitrary threshold probing is rejected by fixed policy bands;
+// - holder identity is scoped to employer + job;
+// - requests are challenge-bound and replay-protected;
+// - successful receipts are keyed by verification id, never a stable holder id;
+// - credential expiry and provider-epoch revocation are enforced;
+// - failed predicates abort before any receipt is written.
 //
-// Only `{ user, passed, claim }` is disclosed on-chain. Raw income, rating and
-// job counts never touch the ledger.
+// Important: request wall-clock expiry is also enforced by the DApp/verifier.
+// Compact v0.23 does not expose a trusted wall-clock primitive here, so the
+// receipt carries the bound expiry for independent verifier rejection.
 
-export verification;
+pragma language_version >= 0.22 && <= 0.23;
 
-ledger {
-  // Public: verification results (employer-facing).
-  verifications: Map<Bytes<32>, Verification>;
+import CompactStandardLibrary;
+import "schnorr" prefix Schnorr_;
 
-  // Public: per-job verification requirements.
-  job_requirements: Map<Bytes<32>, Bytes<32>>;
+export { Schnorr_SchnorrSignature };
 
-  // Public: counter of all proofs ever generated.
-  total_verifications: Counter;
-
-  // Public: count of passed proofs (for portability scoring).
-  passed_verifications: Counter;
+export struct PrivateCredential {
+  income: Uint<64>;
+  ratingX100: Uint<16>;
+  completedJobs: Uint<32>;
+  issuedAtEpoch: Uint<64>;
+  expiresAtEpoch: Uint<64>;
+  providerEpoch: Uint<64>;
 }
 
-witness {
-  // Private: freelancer data. These live on the prover's device only.
-  freelancer_income(): Uint<64>;
-  freelancer_rating(): Uint<8>;
-  freelancer_completed_jobs(): Uint<32>;
-  wallet_secret(): Bytes<32>;
-}
-
-circuit {
-  // Generate proof: proves income > threshold, discloses only a boolean.
-  export generate_income_proof(threshold: Uint<64>): Verification {
-    const income = freelancer_income();
-    const passed = income > threshold;
-    const user_hash = persistent_hash<Bytes<32>>(wallet_secret());
-
-    verifications.insert(user_hash, {
-      user: disclose(user_hash),
-      claim: disclose("income"),
-      threshold: disclose(threshold),
-      passed: disclose(passed),
-      at: disclose(now_ms() / 1000),
-    });
-    total_verifications.increment();
-    if (passed) {
-      passed_verifications.increment();
-    }
-
-    return verifications.lookup(user_hash).unwrap();
-  }
-
-  // Generate proof: proves rating >= min_rating, discloses only a boolean.
-  export generate_rating_proof(min_rating: Uint<8>): Verification {
-    const rating = freelancer_rating();
-    const passed = rating >= min_rating;
-    const user_hash = persistent_hash<Bytes<32>>(wallet_secret());
-
-    verifications.insert(user_hash, {
-      user: disclose(user_hash),
-      claim: disclose("rating"),
-      threshold: disclose(min_rating),
-      passed: disclose(passed),
-      at: disclose(now_ms() / 1000),
-    });
-    total_verifications.increment();
-    if (passed) {
-      passed_verifications.increment();
-    }
-
-    return verifications.lookup(user_hash).unwrap();
-  }
-
-  // Generate proof: proves completed job count >= min_jobs, boolean only.
-  export generate_jobs_proof(min_jobs: Uint<32>): Verification {
-    const jobs = freelancer_completed_jobs();
-    const passed = jobs >= min_jobs;
-    const user_hash = persistent_hash<Bytes<32>>(wallet_secret());
-
-    verifications.insert(user_hash, {
-      user: disclose(user_hash),
-      claim: disclose("jobs"),
-      threshold: disclose(min_jobs),
-      passed: disclose(passed),
-      at: disclose(now_ms() / 1000),
-    });
-    total_verifications.increment();
-    if (passed) {
-      passed_verifications.increment();
-    }
-
-    return verifications.lookup(user_hash).unwrap();
-  }
-
-  // Verify: employer checks whether a freelancer passed a stored proof.
-  export verify_proof(user: Bytes<32>): Maybe<Verification> {
-    return verifications.lookup(user);
-  }
-
-  // Employers read a job requirement to know which proof to request.
-  export get_job_requirement(job_id: Bytes<32>): Maybe<Bytes<32>> {
-    return job_requirements.lookup(job_id);
-  }
-
-  // Employers post a job requirement referencing a proof claim.
-  export post_job_requirement(job_id: Bytes<32>, claim_requirement: Bytes<32>) {
-    job_requirements.insert(job_id, claim_requirement);
-  }
-}
-
-record Verification {
-  user: Bytes<32>;
-  claim: Bytes<32>;
+export struct VerificationReceipt {
+  requestHash: Bytes<32>;
+  scopedSubject: Bytes<32>;
+  providerId: Uint<16>;
+  claimCode: Uint<8>;
   threshold: Uint<64>;
-  passed: Bool;
-  at: Uint<64>;
+  requestExpiresAtEpoch: Uint<64>;
+}
+
+export new type HolderSecret = Bytes<32>;
+export new type AdminSecret = Bytes<32>;
+export new type AdminPublicKey = Bytes<32>;
+
+constructor() {
+  contractAdmin = disclose(deriveAdminPublicKey(getAdminSecret()));
+}
+
+export ledger contractAdmin: AdminPublicKey;
+export ledger providers: Map<Uint<16>, JubjubPoint>;
+export ledger providerEpochs: Map<Uint<16>, Uint<64>>;
+export ledger usedNullifiers: Set<Bytes<32>>;
+export ledger receipts: Map<Bytes<32>, VerificationReceipt>;
+export ledger totalVerified: Counter;
+
+witness getAttestedCredential(): [PrivateCredential, Schnorr_SchnorrSignature, Uint<16>];
+witness getHolderSecret(): HolderSecret;
+witness getAdminSecret(): AdminSecret;
+
+export pure circuit deriveAdminPublicKey(secret: AdminSecret): AdminPublicKey {
+  return persistentHash<[Bytes<25>, AdminSecret]>([
+    "shieldrate:admin:key:v1",
+    secret
+  ]) as AdminPublicKey;
+}
+
+export pure circuit deriveHolderBinding(secret: HolderSecret): Bytes<32> {
+  return persistentHash<[Bytes<28>, HolderSecret]>([
+    "shieldrate:holder:binding:v1",
+    secret
+  ]);
+}
+
+export pure circuit deriveScopedSubject(
+  secret: HolderSecret,
+  employerScope: Bytes<32>,
+  jobScope: Bytes<32>
+): Bytes<32> {
+  return persistentHash<[Bytes<21>, Bytes<32>, Bytes<32>, HolderSecret]>([
+    "shieldrate:subject:v1",
+    employerScope,
+    jobScope,
+    secret
+  ]);
+}
+
+export pure circuit deriveRequestHash(
+  employerScope: Bytes<32>,
+  jobScope: Bytes<32>,
+  claimCode: Uint<8>,
+  threshold: Uint<64>,
+  challenge: Bytes<32>,
+  requestExpiresAtEpoch: Uint<64>
+): Bytes<32> {
+  return persistentHash<[
+    Bytes<21>,
+    Bytes<32>,
+    Bytes<32>,
+    Uint<8>,
+    Uint<64>,
+    Bytes<32>,
+    Uint<64>
+  ]>([
+    "shieldrate:request:v1",
+    employerScope,
+    jobScope,
+    claimCode,
+    threshold,
+    challenge,
+    requestExpiresAtEpoch
+  ]);
+}
+
+export pure circuit deriveNullifier(
+  secret: HolderSecret,
+  requestHash: Bytes<32>
+): Bytes<32> {
+  return persistentHash<[Bytes<23>, Bytes<32>, HolderSecret]>([
+    "shieldrate:nullifier:v1",
+    requestHash,
+    secret
+  ]);
+}
+
+export pure circuit deriveVerificationId(
+  requestHash: Bytes<32>,
+  scopedSubject: Bytes<32>,
+  nullifier: Bytes<32>
+): Bytes<32> {
+  return persistentHash<[Bytes<26>, Bytes<32>, Bytes<32>, Bytes<32>]>([
+    "shieldrate:verification:v1",
+    requestHash,
+    scopedSubject,
+    nullifier
+  ]);
+}
+
+circuit assertAllowedPolicy(claimCode: Uint<8>, threshold: Uint<64>): [] {
+  if (claimCode == 1) {
+    assert(
+      threshold == 40000 || threshold == 50000 || threshold == 80000 || threshold == 120000,
+      "income threshold outside approved policy bands"
+    );
+  } else if (claimCode == 2) {
+    assert(
+      threshold == 400 || threshold == 450 || threshold == 490,
+      "rating threshold outside approved policy bands"
+    );
+  } else {
+    assert(claimCode == 3, "unknown claim code");
+    assert(
+      threshold == 50 || threshold == 100 || threshold == 200,
+      "jobs threshold outside approved policy bands"
+    );
+  }
+}
+
+circuit assertAdmin(): [] {
+  assert(
+    contractAdmin == deriveAdminPublicKey(getAdminSecret()),
+    "admin authorization failed"
+  );
+}
+
+export circuit registerProvider(
+  providerId: Uint<16>,
+  providerPk: JubjubPoint
+): [] {
+  assertAdmin();
+  providers.insert(disclose(providerId), disclose(providerPk));
+  if (!providerEpochs.member(disclose(providerId))) {
+    providerEpochs.insert(disclose(providerId), 0);
+  }
+}
+
+// V1 revocation is provider-epoch based. Rotating the epoch invalidates all
+// credentials previously signed by that provider without exposing a stable
+// per-holder credential id during verification.
+export circuit rotateProviderEpoch(providerId: Uint<16>): [] {
+  assertAdmin();
+  const id = disclose(providerId);
+  assert(providerEpochs.member(id), "provider not registered");
+  const currentEpoch = providerEpochs.lookup(id);
+  assert(currentEpoch < 18446744073709551615, "provider epoch exhausted");
+  providerEpochs.insert(id, currentEpoch + 1);
+}
+
+export circuit removeProvider(providerId: Uint<16>): [] {
+  assertAdmin();
+  const id = disclose(providerId);
+  assert(providers.member(id), "provider not registered");
+  providers.remove(id);
+  if (providerEpochs.member(id)) {
+    providerEpochs.remove(id);
+  }
+}
+
+export circuit verifyClaim(
+  employerScope: Bytes<32>,
+  jobScope: Bytes<32>,
+  claimCode: Uint<8>,
+  threshold: Uint<64>,
+  challenge: Bytes<32>,
+  requestExpiresAtEpoch: Uint<64>
+): Bytes<32> {
+  assertAllowedPolicy(claimCode, threshold);
+
+  const [credential, signature, providerId] = getAttestedCredential();
+  const disclosedProviderId = disclose(providerId);
+  assert(providers.member(disclosedProviderId), "attestation provider not registered");
+  assert(providerEpochs.member(disclosedProviderId), "provider epoch unavailable");
+  assert(
+    credential.providerEpoch == providerEpochs.lookup(disclosedProviderId),
+    "credential revoked by provider epoch rotation"
+  );
+  assert(
+    credential.expiresAtEpoch >= requestExpiresAtEpoch,
+    "credential expires before the verification request"
+  );
+
+  const holderSecret = getHolderSecret();
+  const holderBinding = deriveHolderBinding(holderSecret);
+  const holderBindingField = transientHash<Bytes<32>>(holderBinding);
+
+  // The provider signs the private credential AND its holder binding. The
+  // signature and raw fields remain private inside the ZK proof.
+  const attestedMessage: Vector<7, Field> = [
+    credential.income as Field,
+    credential.ratingX100 as Field,
+    credential.completedJobs as Field,
+    credential.issuedAtEpoch as Field,
+    credential.expiresAtEpoch as Field,
+    credential.providerEpoch as Field,
+    holderBindingField
+  ];
+  Schnorr_schnorrVerify<7>(
+    attestedMessage,
+    signature,
+    providers.lookup(disclosedProviderId)
+  );
+
+  // A failed predicate aborts here. No negative result reaches the ledger.
+  if (claimCode == 1) {
+    assert(credential.income > threshold, "income threshold not met");
+  } else if (claimCode == 2) {
+    assert((credential.ratingX100 as Uint<64>) >= threshold, "rating threshold not met");
+  } else {
+    assert((credential.completedJobs as Uint<64>) >= threshold, "jobs threshold not met");
+  }
+
+  const requestHash = deriveRequestHash(
+    employerScope,
+    jobScope,
+    claimCode,
+    threshold,
+    challenge,
+    requestExpiresAtEpoch
+  );
+  const scopedSubject = deriveScopedSubject(holderSecret, employerScope, jobScope);
+  const nullifier = deriveNullifier(holderSecret, requestHash);
+
+  assert(!usedNullifiers.member(disclose(nullifier)), "request replay detected");
+
+  const verificationId = deriveVerificationId(requestHash, scopedSubject, nullifier);
+  usedNullifiers.insert(disclose(nullifier));
+  receipts.insert(
+    disclose(verificationId),
+    disclose(VerificationReceipt {
+      requestHash: requestHash,
+      scopedSubject: scopedSubject,
+      providerId: providerId,
+      claimCode: claimCode,
+      threshold: threshold,
+      requestExpiresAtEpoch: requestExpiresAtEpoch
+    })
+  );
+  totalVerified.increment(1);
+
+  return disclose(verificationId);
+}
+
+export circuit receiptExists(verificationId: Bytes<32>): Boolean {
+  return receipts.member(disclose(verificationId));
 }

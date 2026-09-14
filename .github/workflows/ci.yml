@@ -16,36 +16,36 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
       - name: Typecheck
         run: npm run typecheck
-
       - name: Run tests
         run: npm test
-
       - name: Build
         run: npm run build
 
-  contract:
-    name: Contract sanity
+  compact:
+    name: Compile Compact contract
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Contract exists & is non-empty
+      - name: Install Compact toolchain
         run: |
-          test -s contracts/shieldrate.compact && \
-          grep -q "ledger" contracts/shieldrate.compact && \
-          grep -q "witness" contracts/shieldrate.compact && \
-          grep -q "circuit" contracts/shieldrate.compact
-          echo "✅ ShieldRate compact contract present (ledger + witness + circuit)"
+          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/download/compact-v0.5.2/compact-installer.sh | sh
+          echo "$HOME/.compact/bin" >> "$GITHUB_PATH"
+      - name: Pin Compact compiler
+        run: |
+          export PATH="$HOME/.compact/bin:$PATH"
+          compact update 0.31.1
+          compact compile --version
+      - name: Compile ShieldRate
+        run: |
+          export PATH="$HOME/.compact/bin:$PATH"
+          compact compile --compact-path contracts contracts/shieldrate.compact .compact-build/shieldrate
