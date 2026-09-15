@@ -1,5 +1,7 @@
+import { createUnprovenDeployTx } from "@midnight-ntwrk/midnight-js-contracts";
 import {
   CompactTypeBytes,
+  sampleSigningKey,
   transientHash,
   type ContractAddress,
   type JubjubPoint,
@@ -14,12 +16,17 @@ import {
   type LiveWorkQualificationReceipt,
   type RegisteredWorkRequestResult,
 } from "./api";
+import { CompiledShieldRateContract } from "./contract";
 import {
   connectMidnightWallet,
   initializeShieldRateProviders,
   type MidnightWalletConnection,
 } from "./providers";
-import type { MidnightWalletSession, ShieldRateProviders } from "./types";
+import {
+  shieldRatePrivateStateKey,
+  type MidnightWalletSession,
+  type ShieldRateProviders,
+} from "./types";
 import {
   createShieldRatePrivateState,
   type ShieldRatePrivateState,
@@ -27,11 +34,34 @@ import {
 } from "./witnesses";
 
 const SECRET_STORAGE_KEY = "shieldrate.midnight.session-secrets.v1";
+const CONTRACT_STORAGE_KEY = "shieldrate.midnight.contract-address.v1";
+const PENDING_DEPLOYMENT_STORAGE_KEY = "shieldrate.midnight.pending-deployment.v1";
 const bytes32Type = new CompactTypeBytes(32);
 
 interface PersistedSecrets {
   holderSecret: string;
   adminSecret: string;
+}
+
+interface PendingDeployment {
+  contractAddress: string;
+  txId: string;
+  submittedAt: string;
+}
+
+export type DeployStage =
+  | "RECOVERING"
+  | "PREPARING"
+  | "PROVING"
+  | "BALANCING"
+  | "SUBMITTING"
+  | "INDEXING"
+  | "JOINING"
+  | "READY";
+
+export interface DeployProgress {
+  stage: DeployStage;
+  detail?: string;
 }
 
 export interface AttestedCredentialPayload {
@@ -75,6 +105,22 @@ const fromHex = (value: string): Uint8Array => {
   return new Uint8Array(cleaned.match(/.{2}/g)!.map((part) => Number.parseInt(part, 16)));
 };
 
+const delay = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const withTimeout = async <T>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
+  let timer: number | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_resolve, reject) => {
+        timer = window.setTimeout(() => reject(new Error(message)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) window.clearTimeout(timer);
+  }
+};
+
 const loadPrivateState = (): ShieldRatePrivateState => {
   if (privateState) return privateState;
   const stored = sessionStorage.getItem(SECRET_STORAGE_KEY);
@@ -107,6 +153,47 @@ const claimCode = (request: Required<ProofRequest>): bigint => {
   return 3n;
 };
 
+const queryIndexedContract = async (activeProviders: ShieldRateProviders, contractAddress: ContractAddress): Promise<boolean> => {
+  try {
+    return Boolean(await withTimeout(
+      activeProviders.publicDataProvider.queryContractState(contractAddress),
+      10_000,
+      "Indexer query timed out.",
+    ));
+  } catch {
+    return false;
+  }
+};
+
+const waitForIndexedContract = async (
+  activeProviders: ShieldRateProviders,
+  contractAddress: ContractAddress,
+  timeoutMs = 120_000,
+): Promise<boolean> => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await queryIndexedContract(activeProviders, contractAddress)) return true;
+    await delay(2_500);
+  }
+  return false;
+};
+
+const restoreKnownContract = async (activeProviders: ShieldRateProviders): Promise<void> => {
+  if (api) return;
+  const configuredAddress = import.meta.env.VITE_SHIELDRATE_CONTRACT_ADDRESS as string | undefined;
+  const rememberedAddress = sessionStorage.getItem(CONTRACT_STORAGE_KEY);
+  const contractAddress = configuredAddress ?? rememberedAddress ?? undefined;
+  if (!contractAddress) return;
+
+  const address = contractAddress as ContractAddress;
+  if (!(await queryIndexedContract(activeProviders, address))) return;
+  api = await withTimeout(
+    ShieldRateAPI.join(activeProviders, address, loadPrivateState()),
+    30_000,
+    `Contract ${contractAddress} is indexed, but joining it timed out. Retry Join existing contract.`,
+  );
+};
+
 export const getMidnightRuntimeSnapshot = (): MidnightRuntimeSnapshot => ({
   connected: !!wallet,
   wallet,
@@ -131,24 +218,129 @@ const ensureProviders = async (): Promise<ShieldRateProviders> => {
   const initialized = await initializeShieldRateProviders(walletConnection);
   providers = initialized.providers;
   wallet = initialized.wallet;
-
-  const configuredAddress = import.meta.env.VITE_SHIELDRATE_CONTRACT_ADDRESS as string | undefined;
-  if (configuredAddress && !api) {
-    api = await ShieldRateAPI.join(providers, configuredAddress as ContractAddress, loadPrivateState());
-  }
-
+  await restoreKnownContract(providers);
   return providers;
 };
 
-export const deployMidnightContract = async (): Promise<string> => {
+/**
+ * Deploy without MidnightJS' blocking deployContract watcher. MidnightJS 4.1.1
+ * waits indefinitely for watchForTxData(), which can leave a browser UI stuck
+ * on NOT JOINED even after the wallet has submitted a transaction. We instead
+ * make every stage explicit, submit once, then poll the indexed contract address
+ * with a bounded timeout. A submitted address is persisted so retry never creates
+ * a duplicate deployment while Preprod indexing catches up.
+ */
+export const deployMidnightContract = async (
+  onProgress?: (progress: DeployProgress) => void,
+): Promise<string> => {
   const activeProviders = await ensureProviders();
-  api = await ShieldRateAPI.deploy(activeProviders, loadPrivateState());
-  return String(api.contractAddress);
+  if (api) return String(api.contractAddress);
+
+  const pendingRaw = sessionStorage.getItem(PENDING_DEPLOYMENT_STORAGE_KEY);
+  if (pendingRaw) {
+    const pending = JSON.parse(pendingRaw) as PendingDeployment;
+    const pendingAddress = pending.contractAddress as ContractAddress;
+    onProgress?.({ stage: "RECOVERING", detail: `Checking submitted tx ${pending.txId}` });
+    if (await queryIndexedContract(activeProviders, pendingAddress)) {
+      onProgress?.({ stage: "JOINING", detail: pending.contractAddress });
+      api = await withTimeout(
+        ShieldRateAPI.join(activeProviders, pendingAddress, loadPrivateState()),
+        30_000,
+        `Submitted contract ${pending.contractAddress} is indexed, but joining timed out.`,
+      );
+      sessionStorage.setItem(CONTRACT_STORAGE_KEY, pending.contractAddress);
+      sessionStorage.removeItem(PENDING_DEPLOYMENT_STORAGE_KEY);
+      onProgress?.({ stage: "READY", detail: pending.contractAddress });
+      return pending.contractAddress;
+    }
+    throw new Error(
+      `A ShieldRate deployment was already submitted and is still waiting for the Preprod indexer. ` +
+      `Do not deploy again. Contract ${pending.contractAddress} · tx ${pending.txId}. Retry this button in a minute.`,
+    );
+  }
+
+  const state = loadPrivateState();
+  onProgress?.({ stage: "PREPARING", detail: "Building deterministic deploy transaction" });
+  const signingKey = sampleSigningKey();
+  const unsubmitted = await withTimeout(
+    createUnprovenDeployTx(activeProviders as any, {
+      compiledContract: CompiledShieldRateContract,
+      signingKey,
+      initialPrivateState: state,
+    }),
+    45_000,
+    "Preparing the ShieldRate deploy transaction timed out while loading verifier material.",
+  );
+
+  const contractAddress = unsubmitted.public.contractAddress as ContractAddress;
+  onProgress?.({ stage: "PROVING", detail: String(contractAddress) });
+  const provenTx = await withTimeout(
+    activeProviders.proofProvider.proveTx(unsubmitted.private.unprovenTx),
+    120_000,
+    "Proof generation timed out. The transaction was not submitted; check the wallet proof service and retry.",
+  );
+
+  onProgress?.({ stage: "BALANCING", detail: "Wallet fee sponsorship / balancing" });
+  const balancedTx = await withTimeout(
+    activeProviders.walletProvider.balanceTx(provenTx),
+    60_000,
+    "Wallet balancing timed out before submission. No indexed ShieldRate contract was confirmed.",
+  );
+
+  onProgress?.({ stage: "SUBMITTING", detail: "Submitting once to Midnight Preprod" });
+  const txId = String(await withTimeout(
+    activeProviders.midnightProvider.submitTx(balancedTx),
+    45_000,
+    "Wallet submission timed out. Check wallet activity before retrying to avoid a duplicate deployment.",
+  ));
+
+  const pending: PendingDeployment = {
+    contractAddress: String(contractAddress),
+    txId,
+    submittedAt: new Date().toISOString(),
+  };
+  sessionStorage.setItem(PENDING_DEPLOYMENT_STORAGE_KEY, JSON.stringify(pending));
+
+  // Preserve the deployer's local authority/private state while indexing catches up.
+  activeProviders.privateStateProvider.setContractAddress(contractAddress);
+  await activeProviders.privateStateProvider.set(shieldRatePrivateStateKey, unsubmitted.private.initialPrivateState);
+  await activeProviders.privateStateProvider.setSigningKey(contractAddress, unsubmitted.private.signingKey);
+
+  onProgress?.({ stage: "INDEXING", detail: `tx ${txId}` });
+  const indexed = await waitForIndexedContract(activeProviders, contractAddress);
+  if (!indexed) {
+    throw new Error(
+      `ShieldRate was submitted, but Preprod has not indexed the contract within 120s. ` +
+      `Do not deploy again. Contract ${String(contractAddress)} · tx ${txId}. Retry this button to recover the submitted deployment.`,
+    );
+  }
+
+  onProgress?.({ stage: "JOINING", detail: String(contractAddress) });
+  api = await withTimeout(
+    ShieldRateAPI.join(activeProviders, contractAddress, state),
+    30_000,
+    `Contract ${String(contractAddress)} is indexed, but the client join step timed out. Use Join existing contract with this address.`,
+  );
+
+  sessionStorage.setItem(CONTRACT_STORAGE_KEY, String(contractAddress));
+  sessionStorage.removeItem(PENDING_DEPLOYMENT_STORAGE_KEY);
+  onProgress?.({ stage: "READY", detail: String(contractAddress) });
+  return String(contractAddress);
 };
 
 export const joinMidnightContract = async (contractAddress: string): Promise<void> => {
   const activeProviders = await ensureProviders();
-  api = await ShieldRateAPI.join(activeProviders, contractAddress as ContractAddress, loadPrivateState());
+  const address = contractAddress as ContractAddress;
+  if (!(await queryIndexedContract(activeProviders, address))) {
+    throw new Error(`No indexed ShieldRate contract is available yet at ${contractAddress}.`);
+  }
+  api = await withTimeout(
+    ShieldRateAPI.join(activeProviders, address, loadPrivateState()),
+    30_000,
+    `Joining ${contractAddress} timed out.`,
+  );
+  sessionStorage.setItem(CONTRACT_STORAGE_KEY, contractAddress);
+  sessionStorage.removeItem(PENDING_DEPLOYMENT_STORAGE_KEY);
 };
 
 export const registerMidnightProvider = async (providerId: bigint, providerPk: JubjubPoint): Promise<{ txId: string; blockHeight: number }> => {
