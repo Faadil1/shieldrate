@@ -1,4 +1,9 @@
-import type { ContractAddress } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
+import {
+  CompactTypeBytes,
+  transientHash,
+  type ContractAddress,
+} from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
+import * as ShieldRateGenerated from "../../.compact-build/shieldrate/contract/index.js";
 import type { PrivateCredential, Schnorr_SchnorrSignature } from "../../.compact-build/shieldrate/contract/index.js";
 import type { ProofRequest } from "../types";
 import { bindRequest } from "../security/integrity";
@@ -12,6 +17,7 @@ import {
 } from "./witnesses";
 
 const SECRET_STORAGE_KEY = "shieldrate.midnight.secrets.v1";
+const bytes32Type = new CompactTypeBytes(32);
 
 interface PersistedSecrets {
   holderSecret: string;
@@ -39,6 +45,11 @@ export interface MidnightRuntimeSnapshot {
   wallet: MidnightWalletSession | null;
   contractAddress: string | null;
   hasAttestedCredential: boolean;
+}
+
+export interface AttestationRequest {
+  holderBindingField: string;
+  contractAddress: string | null;
 }
 
 let privateState: ShieldRatePrivateState | null = null;
@@ -117,6 +128,15 @@ export const joinMidnightContract = async (contractAddress: string): Promise<voi
   await connectMidnightRuntime();
   if (!providers) throw new Error("Midnight providers are not initialized.");
   api = await ShieldRateAPI.join(providers, contractAddress as ContractAddress, loadPrivateState());
+};
+
+export const createAttestationRequest = (): AttestationRequest => {
+  const state = loadPrivateState();
+  const holderBinding = ShieldRateGenerated.pureCircuits.deriveHolderBinding(state.holderSecret);
+  return {
+    holderBindingField: transientHash(bytes32Type, holderBinding).toString(),
+    contractAddress: api?.contractAddress ? String(api.contractAddress) : null,
+  };
 };
 
 export const importAttestedCredential = async (payload: AttestedCredentialPayload): Promise<void> => {
