@@ -1,6 +1,13 @@
 import { useCallback, useRef, useState } from "react";
-import type { ProofRequest, ProofResult } from "../types";
+import type { MidnightNetwork, ProofRequest, ProofResult } from "../types";
+import { bindRequest, executionMode } from "../security/integrity";
 import { deviceProof } from "../utils/proofGenerator";
+import {
+  bytesToHex,
+  getMidnightRuntimeSnapshot,
+  verifyLiveReceipt,
+  verifyMidnightProof,
+} from "../midnight/runtime";
 
 interface UseContractReturn {
   busy: boolean;
@@ -10,15 +17,16 @@ interface UseContractReturn {
   submitVerification: (result: ProofResult) => Promise<boolean>;
 }
 
-/**
- * Proof Integrity v1 adapter.
- *
- * Default mode is DEMO_ATTESTED: issuer registration, request binding,
- * anti-replay nullifier, scoped pseudonym, freshness and pass-only publication
- * are enforced locally and surfaced honestly as LOCAL ONLY.
- *
- * MIDNIGHT_LIVE is fail-closed until the real MidnightJS/Lace adapter is wired.
- */
+const normalizeReceiptNetwork = (network: string | undefined): "preprod" | "preview" | "devnet" => {
+  if (network === "preview" || network === "devnet") return network;
+  return "preprod";
+};
+
+const normalizeWalletNetwork = (network: string | undefined): MidnightNetwork => {
+  if (network === "preprod" || network === "preview" || network === "devnet" || network === "undeployed") return network;
+  return "none";
+};
+
 export function useContract(): UseContractReturn {
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState<ProofResult | null>(null);
@@ -29,6 +37,60 @@ export function useContract(): UseContractReturn {
       setBusy(true);
       setLastResult(null);
       try {
+        if (executionMode() === "midnight-live") {
+          const bound = bindRequest(req);
+          try {
+            const live = await verifyMidnightProof(bound);
+            const runtime = getMidnightRuntimeSnapshot();
+            const generatedAt = new Date().toISOString();
+            const result: ProofResult = {
+              passed: true,
+              userHash: bytesToHex(live.scopedSubject),
+              proofId: bytesToHex(live.verificationId),
+              disclosedValue: "policy satisfied",
+              generatedAt,
+              verifiedOnChain: true,
+              mode: "midnight-live",
+              receipt: {
+                verificationId: bytesToHex(live.verificationId),
+                requestHash: bytesToHex(live.requestHash),
+                scopedSubject: bytesToHex(live.scopedSubject),
+                nullifier: bytesToHex(live.nullifier),
+                issuerId: `provider:${live.providerId.toString()}`,
+                employerId: bound.employerId,
+                jobId: bound.jobId,
+                claim: bound.type,
+                thresholdLabel: bound.thresholdLabel,
+                generatedAt,
+                requestExpiresAt: bound.requestExpiresAt,
+                credentialExpiresAt: new Date(Number(live.credentialExpiresAtEpoch) * 1000).toISOString(),
+                mode: "midnight-live",
+                network: normalizeReceiptNetwork(runtime.wallet?.networkId),
+                ledgerStatus: "confirmed",
+                txHash: live.txId,
+                contractAddress: String(live.contractAddress),
+                blockHeight: live.blockHeight.toString(),
+              },
+            };
+            setLastResult(result);
+            return result;
+          } catch (error) {
+            const rejected: ProofResult = {
+              passed: false,
+              userHash: "not-published",
+              proofId: "live-proof-rejected",
+              disclosedValue: "not published",
+              generatedAt: new Date().toISOString(),
+              verifiedOnChain: false,
+              mode: "midnight-live",
+              receipt: null,
+              failureReason: error instanceof Error ? error.message : "Midnight proof failed before a verified receipt was produced.",
+            };
+            setLastResult(rejected);
+            return rejected;
+          }
+        }
+
         const result = await deviceProof(req);
         const nullifier = result.receipt?.nullifier;
         if (nullifier && usedNullifiers.current.has(nullifier)) {
@@ -53,9 +115,20 @@ export function useContract(): UseContractReturn {
     [],
   );
 
-  const verifyOnChain = useCallback(async (_proofId: string) => false, []);
+  const verifyOnChain = useCallback(async (proofId: string) => {
+    if (executionMode() !== "midnight-live") return false;
+    try {
+      return await verifyLiveReceipt(proofId);
+    } catch {
+      return false;
+    }
+  }, []);
 
-  const submitVerification = useCallback(async (_result: ProofResult) => false, []);
+  const submitVerification = useCallback(async (result: ProofResult) => {
+    if (result.mode !== "midnight-live" || !result.receipt) return false;
+    return verifyLiveReceipt(result.receipt.verificationId);
+  }, []);
 
+  void normalizeWalletNetwork;
   return { busy, lastResult, generateProof, verifyOnChain, submitVerification };
 }

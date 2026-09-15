@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
-import type { WalletState } from "../types";
+import type { MidnightNetwork, WalletState } from "../types";
 import { displayAddress } from "../data";
 import { executionMode } from "../security/integrity";
+import { connectMidnightRuntime } from "../midnight/runtime";
 
 const DEMO_ADDR = "demo-wallet-7a3f8b2c9de14f7a";
 
@@ -11,6 +12,11 @@ interface UseWalletReturn {
   disconnect: () => void;
   connecting: boolean;
 }
+
+const normalizeNetwork = (network: string): MidnightNetwork => {
+  if (network === "preprod" || network === "preview" || network === "devnet" || network === "undeployed") return network;
+  return "none";
+};
 
 export function useWallet(): UseWalletReturn {
   const [wallet, setWallet] = useState<WalletState>({
@@ -25,10 +31,19 @@ export function useWallet(): UseWalletReturn {
     setConnecting(true);
     try {
       if (executionMode() === "midnight-live") {
-        throw new Error(
-          "MIDNIGHT_LIVE is fail-closed until the Lace/MidnightJS wallet adapter is wired",
-        );
+        const runtime = await connectMidnightRuntime();
+        if (!runtime.wallet) throw new Error("Midnight Lace connected without a wallet session.");
+        const address = runtime.wallet.shieldedAddress ?? runtime.wallet.shieldedCoinPublicKey;
+        const next: WalletState = {
+          connected: true,
+          address,
+          displayAddress: displayAddress(address),
+          network: normalizeNetwork(runtime.wallet.networkId),
+        };
+        setWallet(next);
+        return next;
       }
+
       const next: WalletState = {
         connected: true,
         address: DEMO_ADDR,

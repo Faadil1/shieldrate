@@ -7,10 +7,10 @@ interface VerificationTableProps {
 }
 
 const FILTERS: { key: ProofType | "all"; label: string }[] = [
-  { key: "all", label: "All" },
+  { key: "all", label: "All receipts" },
   { key: "income", label: "Income" },
   { key: "reputation", label: "Reputation" },
-  { key: "skills", label: "Skills" },
+  { key: "skills", label: "Completed jobs" },
 ];
 
 export function VerificationTable({ verifications, onEmptyAction }: VerificationTableProps) {
@@ -19,54 +19,100 @@ export function VerificationTable({ verifications, onEmptyAction }: Verification
 
   if (verifications.length === 0) {
     return (
-      <div className="card flex flex-col items-center justify-center py-24 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-rate-900 flex items-center justify-center text-3xl mb-6">🛡</div>
-        <h3 className="text-lg font-semibold text-white">No shareable receipts yet</h3>
-        <p className="text-sm text-mist-500 mt-2 max-w-sm">Only successful, context-bound proofs appear here. Failed predicates stay local.</p>
-        <button className="btn-primary mt-8" onClick={onEmptyAction}>Generate first proof</button>
-      </div>
+      <section className="proof-instrument-v2 px-6 py-14 text-center md:px-10">
+        <div className="relative z-10 mx-auto max-w-[540px]">
+          <div className="evidence-mono text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--iris)]">PUBLIC REGISTER / ZERO ENTRIES</div>
+          <h3 className="display-serif mt-4 text-[38px] leading-[.96] text-[var(--ink)]">No receipt is also evidence.</h3>
+          <p className="mt-4 text-[12px] leading-6 text-[var(--muted)]">ShieldRate writes nothing when the requested predicate fails. The public register therefore contains successful policy proofs only.</p>
+          <button className="btn-primary mt-7" onClick={onEmptyAction}>Issue first request <span aria-hidden>→</span></button>
+        </div>
+      </section>
     );
   }
 
   return (
-    <div className="card overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-5 border-b border-night-800">
+    <section className="overflow-hidden border border-[var(--ink)] bg-[rgba(255,248,232,.78)]">
+      <div className="grid gap-5 border-b border-[var(--ink)] px-5 py-5 md:px-6 xl:grid-cols-[1fr_auto] xl:items-end">
         <div>
-          <h3 className="text-base font-semibold text-white">Shareable Proof Receipts</h3>
-          <p className="text-[11px] text-mist-600 mt-1">Demo receipts are labelled explicitly; no simulated on-chain confirmations.</p>
+          <div className="flex items-center gap-3">
+            <span className="micro-label">Public receipt register</span>
+            <span className="h-px w-9 bg-[var(--copper)]" />
+            <span className="evidence-mono text-[7px] font-black uppercase tracking-[.14em] text-[var(--copper)]">SR/LEDGER</span>
+          </div>
+          <h2 className="display-serif mt-2 text-[31px] leading-none text-[var(--ink)]">Shareable proof receipts</h2>
+          <p className="mt-2 text-[10px] text-[var(--muted)]">Successful context-bound claims only. Evidence mode remains visible on every record.</p>
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {FILTERS.map((item) => (
-            <button key={item.key} onClick={() => setFilter(item.key)} className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition ${filter === item.key ? "bg-night-800 text-neutral-200" : "text-mist-500 hover:text-mist-400"}`}>{item.label}</button>
+            <button
+              key={item.key}
+              onClick={() => setFilter(item.key)}
+              className={`border px-3 py-2 text-[9px] font-black uppercase tracking-[.08em] transition-colors ${
+                filter === item.key
+                  ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper-white)]"
+                  : "border-[var(--rule)] bg-transparent text-[var(--muted)] hover:border-[var(--ink)] hover:text-[var(--ink)]"
+              }`}
+            >
+              {item.label}
+            </button>
           ))}
         </div>
       </div>
+
       <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[820px]">
+        <table className="w-full min-w-[940px] border-collapse text-left">
           <thead>
-            <tr className="border-b border-night-800">
-              {["Scoped subject", "Policy", "Result", "Evidence", "Freshness"].map((heading) => (
-                <th key={heading} className="px-6 py-3 text-[11px] font-semibold uppercase tracking-wide text-mist-600">{heading}</th>
+            <tr className="border-b border-[var(--rule)] bg-[var(--field-cool)]/55">
+              {["Receipt", "Scoped subject", "Policy", "Evidence mode", "Freshness"].map((heading) => (
+                <th key={heading} className="px-5 py-3 text-[8px] font-black uppercase tracking-[0.16em] text-[var(--muted)] first:pl-6">{heading}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.map((item) => (
-              <tr key={item.id} className="border-b border-night-800 last:border-0 hover:bg-night-900/50">
-                <td className="px-6 py-4 text-xs font-mono text-white">{item.userHash}</td>
-                <td className="px-6 py-4 text-sm text-mist-400">{item.thresholdLabel}</td>
-                <td className="px-6 py-4 text-sm font-semibold text-rate-500">Passed</td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[10px] uppercase tracking-wide text-amber-300">
-                    {item.evidenceMode === "midnight-live" ? "Midnight live" : "Demo attested"}
-                  </span>
+            {filtered.map((item, index) => (
+              <tr key={item.id} className="receipt-hover group border-b border-[var(--rule)] last:border-b-0">
+                <td className="px-5 py-4 pl-6 align-top">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-9 w-9 place-items-center rounded-full border border-[var(--verify)] bg-[var(--verify-bg)] evidence-mono text-[8px] font-black text-[var(--verify)]">PASS</span>
+                    <div>
+                      <div className="evidence-mono text-[8px] font-black text-[var(--copper)]">SR-{String(index + 1).padStart(4, "0")}</div>
+                      <div className="mt-1 text-[9px] font-black uppercase tracking-[.1em] text-[var(--verify)]">published</div>
+                    </div>
+                  </div>
                 </td>
-                <td className="px-6 py-4 text-xs text-mist-500">{item.freshUntil ? `until ${new Date(item.freshUntil).toLocaleDateString()}` : item.timestamp}</td>
+                <td className="px-5 py-4 align-top">
+                  <div className="evidence-mono text-[9px] font-bold text-[var(--ink-soft)]">{item.userHash}</div>
+                  <div className="mt-1 text-[8px] uppercase tracking-[.08em] text-[var(--iris)]">context pseudonym</div>
+                </td>
+                <td className="px-5 py-4 align-top">
+                  <div className="text-[11px] font-black text-[var(--ink)]">{item.thresholdLabel}</div>
+                  <div className="mt-1 evidence-mono text-[8px] uppercase tracking-[.1em] text-[var(--muted)]">{item.type}</div>
+                </td>
+                <td className="px-5 py-4 align-top">
+                  <span className={`mode-badge ${item.evidenceMode === "midnight-live" ? "mode-live" : "mode-demo"}`}>{item.evidenceMode === "midnight-live" ? "Midnight live" : "Demo attested"}</span>
+                </td>
+                <td className="px-5 py-4 align-top text-[10px] text-[var(--ink-soft)]">{item.freshUntil ? `Valid until ${new Date(item.freshUntil).toLocaleDateString()}` : item.timestamp}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <div className="grid grid-cols-1 border-t border-[var(--ink)] md:grid-cols-3">
+        <LedgerNote tone="requested" label="Requested" value="Standardized policy band" />
+        <LedgerNote tone="proven" label="Published" value="Pass-only receipt" />
+        <LedgerNote tone="hidden" label="Never shown" value="Raw credential value" last />
+      </div>
+    </section>
+  );
+}
+
+function LedgerNote({ tone, label, value, last = false }: { tone: "requested" | "proven" | "hidden"; label: string; value: string; last?: boolean }) {
+  const toneClass = tone === "requested" ? "privacy-requested" : tone === "proven" ? "privacy-proven" : "privacy-hidden";
+  return (
+    <div className={`px-5 py-4 ${last ? "" : "border-b border-[var(--rule)] md:border-b-0 md:border-r"} ${toneClass}`}>
+      <div className="micro-label !text-current">{label}</div>
+      <div className="mt-1.5 text-[10px] font-black">{value}</div>
     </div>
   );
 }

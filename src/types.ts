@@ -2,6 +2,7 @@ export type ProofType = "income" | "reputation" | "skills";
 export type ProofStatus = "verified" | "rejected" | "pending";
 export type ProofExecutionMode = "demo-attested" | "midnight-live";
 export type LedgerStatus = "local-only" | "submitted" | "confirmed";
+export type MidnightNetwork = "preprod" | "preview" | "devnet" | "undeployed" | "none";
 
 export interface Verification {
   id: string;
@@ -33,7 +34,7 @@ export interface WalletState {
   connected: boolean;
   address: string | null;
   displayAddress: string;
-  network: "preprod" | "devnet" | "none";
+  network: MidnightNetwork;
 }
 
 export type View =
@@ -80,10 +81,11 @@ export interface ProofReceipt {
   requestExpiresAt: string;
   credentialExpiresAt: string;
   mode: ProofExecutionMode;
-  network: "not-submitted" | "preprod";
+  network: "not-submitted" | "preprod" | "preview" | "devnet";
   ledgerStatus: LedgerStatus;
   txHash?: string;
   contractAddress?: string;
+  blockHeight?: string;
 }
 
 export interface ProofResult {

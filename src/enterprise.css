@@ -1,0 +1,158 @@
+.enterprise-shell {
+  background:
+    linear-gradient(180deg, rgba(255,248,232,.18), rgba(216,223,210,.26)),
+    transparent;
+}
+
+.enterprise-sidebar {
+  width: 284px;
+  min-height: 100vh;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--ink);
+  background:
+    linear-gradient(180deg, rgba(255,248,232,.92), rgba(239,228,207,.88)),
+    var(--paper);
+  box-shadow: 10px 0 34px rgba(16,44,49,.055);
+  backdrop-filter: blur(18px);
+}
+
+.workspace-identity {
+  border: 1px solid var(--rule);
+  background:
+    linear-gradient(135deg, rgba(43,97,113,.06), transparent 48%),
+    rgba(255,248,232,.58);
+  padding: 12px 13px;
+}
+
+.workspace-bar {
+  min-height: 54px;
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--ink);
+  padding: 10px 22px;
+  background: rgba(248,239,221,.9);
+  box-shadow: 0 8px 24px rgba(16,44,49,.045);
+  backdrop-filter: blur(16px);
+}
+
+.workspace-canvas {
+  width: 100%;
+  max-width: 1560px;
+  margin: 0 auto;
+}
+
+.utility-label {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.preview-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 18px;
+  border: 1px solid rgba(105,91,120,.34);
+  border-radius: 999px;
+  padding: 3px 6px;
+  background: rgba(228,221,234,.7);
+  color: var(--iris);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 6px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.module-surface {
+  position: relative;
+  border: 1px solid var(--rule-strong);
+  background:
+    linear-gradient(135deg, rgba(43,97,113,.025), transparent 42%),
+    rgba(255,248,232,.78);
+  box-shadow: 4px 5px 0 rgba(16,44,49,.045);
+}
+
+.module-surface::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: -1px;
+  width: 11px;
+  height: 11px;
+  background: linear-gradient(135deg, transparent 0 49%, rgba(166,76,61,.62) 50% 100%);
+  pointer-events: none;
+}
+
+.enterprise-stat {
+  min-height: 122px;
+  border: 1px solid var(--rule);
+  background: rgba(255,248,232,.48);
+  padding: 14px;
+}
+
+.enterprise-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.enterprise-table thead {
+  background: rgba(216,223,210,.5);
+}
+
+.enterprise-table th {
+  border-bottom: 1px solid var(--ink);
+  padding: 11px 18px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.enterprise-table td {
+  border-bottom: 1px solid var(--rule);
+  padding: 14px 18px;
+  color: var(--ink-soft);
+  vertical-align: top;
+}
+
+.enterprise-table tbody tr {
+  transition: background-color 140ms ease;
+}
+
+.enterprise-table tbody tr:hover {
+  background: rgba(215,228,229,.38);
+}
+
+.enterprise-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (max-width: 1023px) {
+  .workspace-bar {
+    position: relative;
+    padding-inline: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enterprise-table tbody tr {
+    transition: none;
+  }
+}
