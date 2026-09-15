@@ -72,6 +72,26 @@ export pure circuit deriveHolderBinding(secret: HolderSecret): Bytes<32> {
   ]);
 }
 
+// Export the exact field the issuer signs. The holder secret never leaves the
+// DApp; an issuer receives only this one-way field alongside the credential it
+// already owns/attests.
+export pure circuit deriveHolderBindingField(secret: HolderSecret): Field {
+  return transientHash<Bytes<32>>(deriveHolderBinding(secret));
+}
+
+// Off-chain issuers use this helper to compute the identical challenge that
+// schnorrVerify<7> checks in-circuit. No private credential values are emitted
+// by the chain; this is only a deterministic signing primitive.
+export pure circuit schnorrChallenge7(
+  ann_x: Field,
+  ann_y: Field,
+  pk_x: Field,
+  pk_y: Field,
+  msg: Vector<7, Field>
+): Field {
+  return Schnorr_schnorrChallenge7(ann_x, ann_y, pk_x, pk_y, msg);
+}
+
 export pure circuit deriveScopedSubject(
   secret: HolderSecret,
   employerScope: Bytes<32>,
@@ -220,8 +240,7 @@ export circuit verifyClaim(
   );
 
   const holderSecret = getHolderSecret();
-  const holderBinding = deriveHolderBinding(holderSecret);
-  const holderBindingField = transientHash<Bytes<32>>(holderBinding);
+  const holderBindingField = deriveHolderBindingField(holderSecret);
 
   // The provider signs the private credential AND its holder binding. The
   // signature and raw fields remain private inside the ZK proof.
