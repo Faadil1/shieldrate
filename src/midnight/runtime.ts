@@ -14,7 +14,11 @@ import {
   type LiveWorkQualificationReceipt,
   type RegisteredWorkRequestResult,
 } from "./api";
-import { initializeShieldRateProviders } from "./providers";
+import {
+  connectMidnightWallet,
+  initializeShieldRateProviders,
+  type MidnightWalletConnection,
+} from "./providers";
 import type { MidnightWalletSession, ShieldRateProviders } from "./types";
 import {
   createShieldRatePrivateState,
@@ -61,6 +65,7 @@ export interface AttestationRequest {
 let privateState: ShieldRatePrivateState | null = null;
 let providers: ShieldRateProviders | null = null;
 let wallet: MidnightWalletSession | null = null;
+let walletConnection: MidnightWalletConnection | null = null;
 let api: ShieldRateAPI | null = null;
 
 const hex = (bytes: Uint8Array): string => Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
@@ -109,32 +114,45 @@ export const getMidnightRuntimeSnapshot = (): MidnightRuntimeSnapshot => ({
   hasAttestedCredential: !!privateState && privateState.attestationProviderId !== 0n,
 });
 
+/** Connect the wallet only. Heavy proving/provider initialization is lazy. */
 export const connectMidnightRuntime = async (): Promise<MidnightRuntimeSnapshot> => {
-  if (providers && wallet) return getMidnightRuntimeSnapshot();
-  const state = loadPrivateState();
-  const initialized = await initializeShieldRateProviders();
-  providers = initialized.providers;
-  wallet = initialized.wallet;
-  const configuredAddress = import.meta.env.VITE_SHIELDRATE_CONTRACT_ADDRESS as string | undefined;
-  if (configuredAddress) api = await ShieldRateAPI.join(providers, configuredAddress as ContractAddress, state);
+  if (wallet && walletConnection) return getMidnightRuntimeSnapshot();
+  loadPrivateState();
+  walletConnection = await connectMidnightWallet();
+  wallet = walletConnection.wallet;
   return getMidnightRuntimeSnapshot();
 };
 
+const ensureProviders = async (): Promise<ShieldRateProviders> => {
+  if (providers) return providers;
+  if (!walletConnection) await connectMidnightRuntime();
+  if (!walletConnection) throw new Error("Midnight wallet connection was not initialized.");
+
+  const initialized = await initializeShieldRateProviders(walletConnection);
+  providers = initialized.providers;
+  wallet = initialized.wallet;
+
+  const configuredAddress = import.meta.env.VITE_SHIELDRATE_CONTRACT_ADDRESS as string | undefined;
+  if (configuredAddress && !api) {
+    api = await ShieldRateAPI.join(providers, configuredAddress as ContractAddress, loadPrivateState());
+  }
+
+  return providers;
+};
+
 export const deployMidnightContract = async (): Promise<string> => {
-  await connectMidnightRuntime();
-  if (!providers) throw new Error("Midnight providers are not initialized.");
-  api = await ShieldRateAPI.deploy(providers, loadPrivateState());
+  const activeProviders = await ensureProviders();
+  api = await ShieldRateAPI.deploy(activeProviders, loadPrivateState());
   return String(api.contractAddress);
 };
 
 export const joinMidnightContract = async (contractAddress: string): Promise<void> => {
-  await connectMidnightRuntime();
-  if (!providers) throw new Error("Midnight providers are not initialized.");
-  api = await ShieldRateAPI.join(providers, contractAddress as ContractAddress, loadPrivateState());
+  const activeProviders = await ensureProviders();
+  api = await ShieldRateAPI.join(activeProviders, contractAddress as ContractAddress, loadPrivateState());
 };
 
 export const registerMidnightProvider = async (providerId: bigint, providerPk: JubjubPoint): Promise<{ txId: string; blockHeight: number }> => {
-  await connectMidnightRuntime();
+  await ensureProviders();
   if (!api) throw new Error("Deploy or join a ShieldRate contract before registering an issuer.");
   const tx = await api.registerProvider(providerId, providerPk);
   return { txId: String(tx.txId), blockHeight: tx.blockHeight };
@@ -167,7 +185,7 @@ export const importAttestedCredential = async (payload: AttestedCredentialPayloa
 };
 
 export const registerMidnightWorkRequest = async (rawRequest: WorkPolicyRequest): Promise<RegisteredWorkRequestResult> => {
-  await connectMidnightRuntime();
+  await ensureProviders();
   if (!api) throw new Error("No live ShieldRate contract is configured.");
   const request = bindWorkPolicyRequest(rawRequest);
   const requestNonce = await hash32(`shieldrate:work-request-nonce:v1|${randomChallenge()}|${Date.now()}`);
@@ -181,7 +199,7 @@ export const registerMidnightWorkRequest = async (rawRequest: WorkPolicyRequest)
 };
 
 export const verifyMidnightRegisteredWorkPolicy = async (workRequestIdHex: string): Promise<LiveWorkQualificationReceipt> => {
-  await connectMidnightRuntime();
+  await ensureProviders();
   if (!api) throw new Error("No live ShieldRate contract is configured.");
   const state = loadPrivateState();
   if (state.attestationProviderId === 0n) throw new Error("No issuer-attested credential is loaded for MIDNIGHT_LIVE.");
@@ -189,7 +207,7 @@ export const verifyMidnightRegisteredWorkPolicy = async (workRequestIdHex: strin
 };
 
 export const verifyMidnightProof = async (rawRequest: ProofRequest): Promise<LiveVerificationReceipt> => {
-  await connectMidnightRuntime();
+  await ensureProviders();
   if (!api) throw new Error("No live ShieldRate contract is configured. Set VITE_SHIELDRATE_CONTRACT_ADDRESS or deploy a contract first.");
   const state = loadPrivateState();
   if (state.attestationProviderId === 0n) throw new Error("No issuer-attested credential is loaded for MIDNIGHT_LIVE.");
@@ -206,12 +224,12 @@ export const verifyMidnightProof = async (rawRequest: ProofRequest): Promise<Liv
 };
 
 export const verifyLiveReceipt = async (verificationIdHex: string): Promise<boolean> => {
-  await connectMidnightRuntime();
+  await ensureProviders();
   return api ? api.receiptExists(fromHex(verificationIdHex)) : false;
 };
 
 export const verifyLiveWorkReceipt = async (verificationIdHex: string): Promise<boolean> => {
-  await connectMidnightRuntime();
+  await ensureProviders();
   return api ? api.workReceiptExists(fromHex(verificationIdHex)) : false;
 };
 
