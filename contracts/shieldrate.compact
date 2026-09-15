@@ -59,7 +59,7 @@ witness getHolderSecret(): HolderSecret;
 witness getAdminSecret(): AdminSecret;
 
 export pure circuit deriveAdminPublicKey(secret: AdminSecret): AdminPublicKey {
-  return persistentHash<[Bytes<25>, AdminSecret]>([
+  return persistentHash<[Bytes<23>, AdminSecret]>([
     "shieldrate:admin:key:v1",
     secret
   ]) as AdminPublicKey;
