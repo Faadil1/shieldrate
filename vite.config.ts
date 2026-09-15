@@ -9,8 +9,9 @@ export default defineConfig({
     target: "esnext",
     rollupOptions: {
       output: {
-        manualChunks: {
-          wasm: ["@midnight-ntwrk/onchain-runtime-v3"],
+        manualChunks(id) {
+          if (id.includes("@midnight-ntwrk/onchain-runtime-v3")) return "wasm";
+          return undefined;
         },
       },
     },
