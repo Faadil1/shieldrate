@@ -5,3 +5,10 @@ dist/
 .vite/
 coverage/
 *.tsbuildinfo
+.compact-build/
+contracts/managed/
+public/keys/
+public/zkir/
+.env
+.env.local
+.env.*.local
