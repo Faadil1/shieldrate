@@ -23,9 +23,23 @@ export interface LiveVerificationReceipt {
   providerId: bigint;
   credentialExpiresAtEpoch: bigint;
   txId: string;
-  blockHeight: bigint;
+  blockHeight: number;
   contractAddress: ContractAddress;
 }
+
+type ShieldRateCallTx = {
+  registerProvider(providerId: bigint, providerPk: JubjubPoint): Promise<{ public: FinalizedTxData }>;
+  rotateProviderEpoch(providerId: bigint): Promise<{ public: FinalizedTxData }>;
+  removeProvider(providerId: bigint): Promise<{ public: FinalizedTxData }>;
+  verifyClaim(
+    employerScope: Uint8Array,
+    jobScope: Uint8Array,
+    claimCode: bigint,
+    threshold: bigint,
+    challenge: Uint8Array,
+    requestExpiresAtEpoch: bigint,
+  ): Promise<{ public: FinalizedTxData }>;
+};
 
 export class ShieldRateAPI {
   private constructor(
@@ -37,6 +51,10 @@ export class ShieldRateAPI {
   }
 
   readonly contractAddress: ContractAddress;
+
+  private get callTx(): ShieldRateCallTx {
+    return this.deployedContract.callTx as unknown as ShieldRateCallTx;
+  }
 
   static async deploy(providers: ShieldRateProviders, privateState: ShieldRatePrivateState): Promise<ShieldRateAPI> {
     const deployed = await deployContract(providers as any, {
@@ -70,17 +88,17 @@ export class ShieldRateAPI {
   }
 
   async registerProvider(providerId: bigint, providerPk: JubjubPoint): Promise<FinalizedTxData> {
-    const tx = await this.deployedContract.callTx.registerProvider(providerId, providerPk);
+    const tx = await this.callTx.registerProvider(providerId, providerPk);
     return tx.public;
   }
 
   async rotateProviderEpoch(providerId: bigint): Promise<FinalizedTxData> {
-    const tx = await this.deployedContract.callTx.rotateProviderEpoch(providerId);
+    const tx = await this.callTx.rotateProviderEpoch(providerId);
     return tx.public;
   }
 
   async removeProvider(providerId: bigint): Promise<FinalizedTxData> {
-    const tx = await this.deployedContract.callTx.removeProvider(providerId);
+    const tx = await this.callTx.removeProvider(providerId);
     return tx.public;
   }
 
@@ -103,7 +121,7 @@ export class ShieldRateAPI {
     const nullifier = ShieldRateContract.pureCircuits.deriveNullifier(state.holderSecret, requestHash);
     const verificationId = ShieldRateContract.pureCircuits.deriveVerificationId(requestHash, scopedSubject, nullifier);
 
-    const tx = await this.deployedContract.callTx.verifyClaim(
+    const tx = await this.callTx.verifyClaim(
       request.employerScope,
       request.jobScope,
       request.claimCode,
