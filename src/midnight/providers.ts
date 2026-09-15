@@ -62,12 +62,7 @@ export interface MidnightWalletConnection {
   addresses: Awaited<ReturnType<ConnectedAPI["getShieldedAddresses"]>>;
 }
 
-/**
- * Connect and validate the wallet only. Proof-provider initialization is kept out
- * of this path so a wallet can visibly reach CONNECTED before a heavy prover is
- * requested. This matters for wallets such as 1AM that delegate proving to a
- * hosted service and may initialize that service lazily.
- */
+/** Connect and validate the wallet only; proving stays lazy. */
 export const connectMidnightWallet = async (): Promise<MidnightWalletConnection> => {
   const requestedNetwork = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID || DEFAULT_NETWORK) as NetworkId;
   setNetworkId(requestedNetwork);
@@ -112,21 +107,17 @@ export const initializeShieldRateProviders = async (
   const { connectedAPI, config, addresses, wallet } = connection;
 
   const privateStateProvider = inMemoryPrivateStateProvider<ShieldRatePrivateStateId, ShieldRatePrivateState>();
-
-  // GitHub Pages serves ShieldRate from /shieldrate/. Using window.location.origin
-  // incorrectly points ZK artifact requests to https://faadil1.github.io/keys/... .
-  // Resolve against the actual deployed page directory so keys/ and zkir/ are
-  // fetched from https://faadil1.github.io/shieldrate/{keys,zkir}/... .
   const zkArtifactBaseUrl = new URL("./", window.location.href).href.replace(/\/$/, "");
   const zkConfigProvider = new FetchZkConfigProvider<ShieldRateCircuitKeys>(zkArtifactBaseUrl, fetch.bind(window));
 
-  // Connector API v4 lets wallets such as 1AM expose a delegated proving provider.
-  // Initialize it only when an actual contract operation needs providers; wallet
-  // connection itself stays lightweight and diagnosable.
-  const proofProvider = typeof connectedAPI.getProvingProvider === "function"
-    ? createProofProvider(await connectedAPI.getProvingProvider(zkConfigProvider))
-    : config.proverServerUri
-      ? httpClientProofProvider(config.proverServerUri, zkConfigProvider)
+  // 1AM exposes a hosted prover through its Connector configuration. Prefer that
+  // transaction-level HTTP provider when present: it handles the complete deploy
+  // transaction, including wallet/built-in ledger proving material. Keep the v4
+  // delegated proving provider as a fallback for wallets that do not expose a URI.
+  const proofProvider = config.proverServerUri
+    ? httpClientProofProvider(config.proverServerUri, zkConfigProvider)
+    : typeof connectedAPI.getProvingProvider === "function"
+      ? createProofProvider(await connectedAPI.getProvingProvider(zkConfigProvider))
       : (() => { throw new Error("No compatible Midnight proof provider is available from the connected wallet."); })();
 
   const providers: ShieldRateProviders = {
@@ -138,7 +129,7 @@ export const initializeShieldRateProviders = async (
       getCoinPublicKey: () => addresses.shieldedCoinPublicKey,
       getEncryptionPublicKey: () => addresses.shieldedEncryptionPublicKey,
       balanceTx: async (tx: UnboundTransaction): Promise<FinalizedTransaction> => {
-        const balanced = await connectedAPI.balanceUnsealedTransaction(toHex(tx.serialize()));
+        const balanced = await connectedAPI.balanceUnsealedTransaction(toHex(tx.serialize()), { payFees: true });
         return Transaction.deserialize<SignatureEnabled, Proof, Binding>("signature", "proof", "binding", fromHex(balanced.tx));
       },
     },
@@ -153,6 +144,5 @@ export const initializeShieldRateProviders = async (
   return { providers, connectedAPI, wallet };
 };
 
-// Backwards-compatible export for older internal imports/documentation.
 export const connectToLace = connectToWallet;
 export { shieldRatePrivateStateKey };
