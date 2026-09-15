@@ -82,7 +82,7 @@ Public work requests can also be audited over time without publishing applicant 
 4. **Authenticated verifier scope** — employer identity comes from `ownPublicKey()`.
 5. **Composite qualification** — one complete work policy produces one public result.
 6. **Opportunity-scoped anti-probing** — one successful qualification per holder + employer + job opportunity.
-7. **On-chain request expiry** — Compact checks the deadline against block time.
+7. **On-chain request expiry** — Compact checks the deadline against block time using Unix-millisecond timestamps.
 8. **Credential temporal validity** — future issuance is rejected and validity must cover the request window.
 9. **Monotonic provider revocation** — provider removal increments and preserves its epoch, so re-registration cannot revive old epoch credentials.
 10. **Scoped identity** — holder pseudonyms are derived per employer + job.
@@ -110,11 +110,17 @@ rm -rf .compact-build/shieldrate
 compact compile --compact-path contracts contracts/shieldrate.compact .compact-build/shieldrate
 ```
 
-The current toolchain uses Vite `8.3.0` and Vitest `5.0.1`. The dependency-remediation validation reported **0 npm audit vulnerabilities**, and CI now treats moderate-or-higher audit findings as a failing gate on Node 22.
+The validation suite now includes **25 tests**, including five tests that execute the generated Compact `Contract` directly. Those compiled-circuit tests cover the Unix-millisecond deadline boundary, one-policy-per-opportunity, cancellation without policy replacement, and monotonic provider epochs. CI run `35006331486` passed Compact compilation, Node 20 typecheck/tests/build, Node 22 dependency audit/typecheck/tests/build, with `npm audit` reporting zero known vulnerabilities at the configured moderate-or-higher threshold.
+
+The current toolchain uses Vite `8.3.0` and Vitest `5.0.1`. Node 22 is the authoritative supported test/runtime gate for this Vitest generation; Node 20 remains a compatibility signal and currently passes despite Vitest's Node-engine warning.
+
+## Time boundary
+
+Compact/Midnight deadline helpers are treated as **Unix milliseconds**. Historical ABI field names such as `issuedAtEpoch`, `expiresAtEpoch` and `requestExpiresAtEpoch` remain for compatibility, but their values are milliseconds. The browser runtime and issuer helper no longer divide timestamps by `1000`, and a compiled-circuit regression test rejects second-based request expiry values.
 
 ## Performance boundary
 
-The Midnight live runtime is dynamically imported only when live functionality is requested. The judge-facing entry bundle dropped from roughly **1.08 MB to ~245 KB minified** in the validated V4 build; the larger Midnight runtime remains in a separate lazy chunk. Midnight WASM assets are still packaged for the live path.
+The Midnight live runtime is dynamically imported only when live functionality is requested. The judge-facing entry bundle dropped from roughly **1.08 MB to ~241–245 KB minified** in validated V4 builds; the larger Midnight runtime remains in a separate lazy chunk. Midnight WASM assets are still packaged for the live path.
 
 ## Live operator path
 
@@ -127,6 +133,8 @@ The live setup dossier exposes the V4 sequence directly:
 5. submit registered private qualification;
 6. require indexed work-receipt confirmation.
 
+Opeyemi's concise operator checklist is [`docs/OPEYEMI-LIVE-GATE.md`](docs/OPEYEMI-LIVE-GATE.md); the full procedure is [`docs/REAL-TX-RUNBOOK.md`](docs/REAL-TX-RUNBOOK.md).
+
 ## Evidence discipline
 
 See [`docs/CLAIMS.md`](docs/CLAIMS.md). ShieldRate does **not** currently claim:
@@ -135,7 +143,8 @@ See [`docs/CLAIMS.md`](docs/CLAIMS.md). ShieldRate does **not** currently claim:
 - production issuer governance;
 - production RBAC, billing or webhook infrastructure;
 - that Commit-Before-Know proves a policy is legally fair or non-discriminatory;
-- that employer/job scope maps to a unique real-world requisition beyond the authenticated on-chain scope supplied by that employer.
+- that employer/job scope maps to a unique real-world requisition beyond the authenticated on-chain scope supplied by that employer;
+- that future dependency states will remain vulnerability-free merely because the current CI audit is clean.
 
 ## Product wedge
 
@@ -150,6 +159,7 @@ The employer gets a durable proof that a candidate satisfied a standard. The wor
 - [`docs/CLAIMS.md`](docs/CLAIMS.md)
 - [`docs/COMMIT-BEFORE-KNOW.md`](docs/COMMIT-BEFORE-KNOW.md)
 - [`docs/WORK-QUALIFICATION.md`](docs/WORK-QUALIFICATION.md)
+- [`docs/OPEYEMI-LIVE-GATE.md`](docs/OPEYEMI-LIVE-GATE.md)
 - [`docs/REAL-TX-RUNBOOK.md`](docs/REAL-TX-RUNBOOK.md)
 - [`docs/COMPETITIVE-INTELLIGENCE-WAVE1.md`](docs/COMPETITIVE-INTELLIGENCE-WAVE1.md)
 
