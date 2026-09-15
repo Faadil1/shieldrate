@@ -4,7 +4,7 @@ Date: 2026-09-14
 Workstream: `PROOF_INTEGRITY_V1`
 Repository: `Faadil1/shieldrate`
 Branch: `proof-integrity-v1`
-Status: `INTEGRATION_BRANCH_READY`
+Status: `CI_VALIDATION_TRIGGERED`
 
 ## Product state
 
@@ -27,4 +27,4 @@ The original ShieldRate prototype had a strong private-reputation thesis but sim
 
 ## Current gate
 
-The integration branch contains the Proof Integrity v1 implementation. The next gate is CI validation, especially the real Compact compile job. Do not merge or enable `MIDNIGHT_LIVE` if the Compact compile or web build fails.
+GitHub Actions was enabled for the fork on 2026-09-14. This state-only commit intentionally retriggers the open pull request so CI can validate the integration branch. The next gate is CI validation, especially the real Compact compile job. Do not merge or enable `MIDNIGHT_LIVE` if the Compact compile or web build fails.
