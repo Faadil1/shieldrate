@@ -1,0 +1,41 @@
+name: Dependency Refresh
+
+on:
+  push:
+    branches: [winning-intelligence-v4]
+    paths:
+      - state/DEPENDENCY-REFRESH.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: winning-intelligence-v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Upgrade Vite and Vitest toolchain
+        run: npm install --save-dev vite@8.3.0 vitest@5.0.1 @vitejs/plugin-react@latest
+      - name: Audit
+        run: npm audit --audit-level=moderate
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Commit lockfile refresh
+        run: |
+          git config user.name "shieldrate-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore: remediate Vite and Vitest audit findings"
+          git push origin HEAD:winning-intelligence-v4
