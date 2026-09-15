@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
-    "lint": "tsc -b --noEmit"
+    "lint": "tsc -b --noEmit",
+    "issue:demo": "node scripts/issue-demo-credential.mjs"
   },
   "dependencies": {
     "@midnight-ntwrk/compact-js": "2.5.1",
@@ -43,7 +44,6 @@
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
-    "vite-plugin-top-level-await": "^1.6.0",
     "vite-plugin-wasm": "^3.5.0",
     "vitest": "^2.1.8"
   },
