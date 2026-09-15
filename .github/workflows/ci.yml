@@ -42,6 +42,12 @@ jobs:
           export PATH="$HOME/.compact/bin:$PATH"
           npm run compact
 
+      - name: Verify issuer signing path
+        run: |
+          node --check issuer/signing.mjs
+          node --check issuer/server.mjs
+          node issuer/selftest.mjs
+
       - name: Sync proving assets
         run: npm run sync:midnight
 
