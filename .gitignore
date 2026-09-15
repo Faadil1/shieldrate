@@ -1,7 +1,11 @@
 node_modules/
 dist/
+.compact-build/
 *.log
 .DS_Store
 .vite/
 coverage/
 *.tsbuildinfo
+.env
+.env.*
+!.env.example
