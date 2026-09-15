@@ -1,9 +1,8 @@
 import { useState } from "react";
-import type { ProofRequest, View } from "./types";
+import type { ProofRequest, Verification, View } from "./types";
 import { useContract } from "./hooks/useContract";
 import { useWallet } from "./hooks/useWallet";
-import { SHIELD_VERIFICATIONS } from "./data";
-import { computeStats } from "./data";
+import { SHIELD_VERIFICATIONS, computeStats } from "./data";
 import { Landing } from "./components/Landing";
 import { Sidebar, type SectionKey } from "./components/Sidebar";
 import { Header } from "./components/Header";
@@ -21,10 +20,31 @@ export default function App() {
   const [section, setSection] = useState<SectionKey>("dashboard");
   const [proofModalOpen, setProofModalOpen] = useState(false);
 
-  const stats = computeStats(SHIELD_VERIFICATIONS);
+  const generatedReceipt: Verification[] = lastResult?.passed && lastResult.receipt
+    ? [
+        {
+          id: lastResult.receipt.verificationId,
+          candidateId: lastResult.receipt.scopedSubject,
+          candidateLabel: lastResult.receipt.scopedSubject,
+          userHash: `${lastResult.receipt.scopedSubject.slice(0, 10)}…${lastResult.receipt.scopedSubject.slice(-8)}`,
+          type: lastResult.receipt.claim,
+          thresholdLabel: lastResult.receipt.thresholdLabel,
+          threshold: lastResult.receipt.thresholdLabel,
+          result: "passed",
+          status: "verified",
+          timestamp: "just now",
+          evidenceMode: lastResult.receipt.mode,
+          requestHash: lastResult.receipt.requestHash,
+          freshUntil: lastResult.receipt.credentialExpiresAt,
+        },
+      ]
+    : [];
+
+  // Only successful proofs become shareable rows. Failed predicates remain local.
+  const stats = computeStats([...generatedReceipt, ...SHIELD_VERIFICATIONS]);
 
   const handleGenerate = (req: ProofRequest) => {
-    void generateProof(req, wallet.address ?? "devnet-user");
+    void generateProof(req, wallet.address ?? "demo-holder");
   };
 
   return (
@@ -61,42 +81,22 @@ export default function App() {
               onDisconnect={disconnect}
               onGenerateProof={() => setProofModalOpen(true)}
             />
-            <KPICards
-              activeVerifications={stats.active}
-              reviewTime="1.2s"
-              failedProofs={stats.failed}
-            />
-            <VerificationTable
-              verifications={stats.listed}
-              onEmptyAction={() => setProofModalOpen(true)}
-            />
+            <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-3 text-xs text-amber-200/80">
+              Proof Integrity v1 · DEMO_ATTESTED mode. No transaction, block confirmation or Midnight network state is simulated.
+            </div>
+            <KPICards activeVerifications={stats.active} reviewTime="local" failedProofs={stats.failed} />
+            <VerificationTable verifications={stats.listed} onEmptyAction={() => setProofModalOpen(true)} />
             <div className="mt-8 flex gap-3">
-              <button
-                className="btn-secondary"
-                onClick={() => setView("landing")}
-              >
-                ← Landing
-              </button>
-              <button
-                className="btn-secondary"
-                onClick={() => setView("freelancer")}
-              >
-                Freelancer View
-              </button>
-              <button className="btn-secondary" onClick={() => setView("mobile")}>
-                Mobile App
-              </button>
+              <button className="btn-secondary" onClick={() => setView("landing")}>← Landing</button>
+              <button className="btn-secondary" onClick={() => setView("freelancer")}>Freelancer View</button>
+              <button className="btn-secondary" onClick={() => setView("mobile")}>Mobile App</button>
             </div>
           </main>
         </div>
       )}
 
       {view === "freelancer" && (
-        <FreelancerView
-          wallet={wallet}
-          onGenerateProof={() => setProofModalOpen(true)}
-          onBack={() => setView("dashboard")}
-        />
+        <FreelancerView wallet={wallet} onGenerateProof={() => setProofModalOpen(true)} onBack={() => setView("dashboard")} />
       )}
 
       {view === "mobile" && <MobileView onBack={() => setView("landing")} />}

@@ -4,241 +4,134 @@
 
 <p align="center">
   <em>Prove your worth. Reveal nothing.</em><br>
-  Zero-knowledge reputation & income verification on <strong>Midnight</strong>.
+  Privacy-preserving work credentials for freelancers on <strong>Midnight</strong>.
 </p>
 
-<p align="center">
-  <!-- Badges -->
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-22c55e" alt="License: Apache 2.0" /></a>
-  <a href=".github/workflows/ci.yml"><img src="https://img.shields.io/badge/CI-passing-22c55e" alt="CI passing" /></a>
-  <img src="https://img.shields.io/badge/TypeScript-5.6-3178c6" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/React-18-61dafb" alt="React 18" />
-  <img src="https://img.shields.io/badge/Tailwind-3-38bdf8" alt="Tailwind CSS" />
-  <img src="https://img.shields.io/badge/Midnight-Buildathon%20Wave%201-6b46c1" alt="Midnight Buildathon Wave 1" />
-  <img src="https://img.shields.io/badge/zero--knowledge-native-22c55e" alt="Zero-knowledge native" />
-  <img src="https://img.shields.io/badge/PRs-welcome-22c55e" alt="PRs welcome" />
-</p>
+# ShieldRate
 
----
+ShieldRate lets a freelancer prove that an **issuer-attested** work fact satisfies an employer policy — for example, income above a standard band, rating above a minimum, or completed jobs above a threshold — without sharing the raw credential.
 
-**ShieldRate** lets freelancers prove income, reputation, and credentials using
-**zero-knowledge proofs on Midnight's Compact contracts** — without exposing any
-personal data. Employers receive cryptographic attestations they can verify
-on-chain in under two seconds.
+Built for **Midnight Buildathon — Wave 1**.
 
-Built for **[Midnight Buildathon — Wave 1](https://app.akindo.io/wave-hacks/jaMZjqPOBsLXvjdG)**
-(3,500 USDT · part of a 12,500 USDT wave pool).
+## Current trust boundary
 
-## Project status
+ShieldRate now has two explicit execution modes:
 
-| | |
+| Mode | What it means |
 |---|---|
-| ✓ Contract | `contracts/shieldrate.compact` — `ledger` + `witness` + `circuit` |
-| ✓ Frontend | 5 screens, React + TypeScript + Tailwind, dark/green theme |
-| ✓ Wallet bridge | swap-point hooks for MidnightJS / Lace (`src/hooks/`) |
-| ✓ Tests | 8 tests passing (SHA-256 NIST vectors, witness/circuit logic) |
-| ✓ CI/CD | GitHub Actions: verify, tests, build, Pages deploy |
-| ✓ Docs | README, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, LICENSE |
+| `DEMO_ATTESTED` | Local integrity demo. The UI exercises issuer registration, fixed policy bands, scoped pseudonyms, request binding, anti-replay nullifiers, freshness checks and pass-only receipts. It does **not** claim a Midnight transaction. |
+| `MIDNIGHT_LIVE` | Reserved for the real MidnightJS/Lace + deployed Compact adapter. It currently fails closed until genuine network receipts are available. |
 
----
+**The public demo must never display a fake transaction hash, fake contract address, fake block confirmation, or fake “Preprod confirmed” state.**
 
-## The problem
+## Proof Integrity v1
 
-Freelancers on Upwork/Fiverr/Toptal have reputation trapped inside those
-platforms. They can't prove to a new employer *"I earned $60k last year"* or
-*"I completed 120 jobs with a 4.8 rating"* without sharing bank statements or
-platform screenshots — and employers have no way to verify without trusting the
-freelancer.
+The first integrity build closes eight gaps from the original prototype:
 
-## The solution
+1. **Issuer authenticity** — self-reported witness values are not enough. The live Compact design follows Midnight's ZK Loan attestation pattern: a registered provider signs a private credential and the Schnorr signature is verified inside the circuit.
+2. **Anti-probing policies** — employers choose from standardized bands instead of arbitrary sliders, reducing binary-search leakage.
+3. **Scoped identity** — the holder pseudonym is derived per employer + job, so there is no reusable cross-employer identifier in a receipt.
+4. **Context binding + anti-replay** — employer, job, claim, threshold, challenge and expiry are bound into the request hash; a request-specific nullifier prevents replay.
+5. **Verification-ID storage** — receipts are keyed by verification ID, not by a persistent user hash, so multiple proofs do not overwrite a public holder profile.
+6. **Freshness + revocation** — credentials carry issuance/expiry metadata. The DApp rejects expired requests; the Compact contract requires credential validity to cover the request window and supports provider epoch rotation/removal for revocation in v1.
+7. **Pass-only publication** — a failed predicate creates no shareable receipt; the Compact circuit aborts before ledger insertion.
+8. **No proof theatre** — demo and live states are visibly different. Network claims appear only when returned by the real adapter.
 
-1. **Freelancer** connects a wallet and generates a ZK proof of an income range
-   (e.g. "Income > $50,000") using Midnight witnesses. The raw data never
-   leaves the device.
-2. **Employer** posts a job with verification requirements.
-3. **Freelancer** submits the proof — the employer sees only the **boolean
-   result** (passed/failed), never the underlying income.
-4. **On-chain**: a Compact contract stores the verification result. No personal
-   data ever touches the blockchain.
+See [`docs/PROOF-INTEGRITY-V1.md`](docs/PROOF-INTEGRITY-V1.md) for the security model and remaining live-network gate.
 
----
+## Canonical demo flow
+
+1. Open ShieldRate and connect the **demo wallet**.
+2. Choose an income, reputation or completed-jobs claim.
+3. Select one of the approved policy bands.
+4. ShieldRate binds the request to the demo employer/job, creates a fresh challenge and expiry, and derives a scoped subject + nullifier.
+5. The local demo issuer credential is validated.
+6. If the predicate fails, the result stays local and no receipt is produced.
+7. If it passes, ShieldRate shows a `DEMO_ATTESTED · LOCAL ONLY` receipt containing only the scoped proof metadata.
+
+No step in this demo is presented as a real Midnight transaction.
+
+## Compact contract
+
+`contracts/shieldrate.compact` targets Compact language `>= 0.22 && <= 0.23` / toolchain `0.31.x` and imports `contracts/schnorr.compact`, adapted from Midnight's Apache-2.0 `example-zkloan` Schnorr verification module.
+
+The contract contains:
+
+- registered attestation providers (`providerId → JubjubPoint`);
+- provider epochs for revocation without a stable per-holder credential id;
+- in-circuit verification of a private provider-signed credential;
+- fixed threshold policy bands;
+- employer/job scoped holder pseudonyms;
+- challenge-bound request hashes;
+- anti-replay nullifiers;
+- pass-only `VerificationReceipt` storage keyed by verification ID.
+
+The CI workflow now contains a real Compact compiler gate instead of checking whether the source merely contains the words `ledger`, `witness`, and `circuit`.
 
 ## Project structure
 
-```
+```text
 .
-├── .github/
-│   ├── ISSUE_TEMPLATE/
-│   │   ├── bug_report.md
-│   │   └── feature_request.md
-│   ├── PULL_REQUEST_TEMPLATE.md
-│   └── workflows/
-│       ├── ci.yml          # typecheck + tests + build (Node 20/22 matrix)
-│       ├── deploy.yml      # build → GitHub Pages on push to main
-│       └── issues.yml      # auto-triage comment on new issues
-│
-├── assets/
-│   └── logo.svg            # brand wordmark (dark card + shield mark)
-│
 ├── contracts/
-│   └── shieldrate.compact  # Compact contract: ledger + witness + circuit
-│
-├── public/                 # copied to dist/ at build (Vite publicDir)
-│   ├── favicon.svg         # browser-tab SVG favicon (green shield mark)
-│   ├── favicon-32.png      # PNG fallback for older browsers
-│   ├── apple-touch-icon.png# 180×180 iOS home-screen icon
-│   ├── icon-192.png        # Android / PWA icon
-│   ├── icon-512.png        # Android / PWA splash
-│   ├── site.webmanifest    # PWA manifest
-│   └── og-image.png        # social-preview image (1200×630, WhatsApp/Twitter)
-│
-├── scripts/
-│   └── make-assets.mjs     # generates public/ PNGs + og-image (pure Node, no libs)
-│
+│   ├── shieldrate.compact      # Proof Integrity v1 contract
+│   └── schnorr.compact         # Schnorr verification module (Apache-2.0 source pattern)
+├── docs/
+│   └── PROOF-INTEGRITY-V1.md   # security model / trust boundary
+├── state/
+│   ├── CURRENT.md              # canonical current state
+│   └── HANDOVER.md             # continuation instructions
 ├── src/
-│   ├── App.tsx             # view router (landing/dashboard/freelancer/mobile)
-│   ├── main.tsx            # React entry point
-│   ├── index.css           # Tailwind + shared component classes
-│   ├── data.ts             # demo data + stat computation
-│   ├── types.ts            # domain types (Verification, ProofResult…)
+│   ├── App.tsx
 │   ├── components/
-│   │   ├── Landing.tsx              # 01 · landing/hero
-│   │   ├── Sidebar.tsx              # employer sidebar
-│   │   ├── Header.tsx               # dashboard topbar + wallet state
-│   │   ├── KPICards.tsx             # stat cards
-│   │   ├── VerificationTable.tsx    # 02 · proof submissions (+ empty state)
-│   │   ├── MobileView.tsx           # 03 · mobile experience
-│   │   ├── FreelancerView.tsx       # 04 · credential cards
-│   │   └── ProofModal.tsx           # 05 · ZK proof generation flow
 │   ├── hooks/
-│   │   ├── useWallet.ts             # Midnight/Lace wallet bridge (swap point)
-│   │   └── useContract.ts           # Compact contract bridge (swap point)
+│   │   ├── useWallet.ts        # demo wallet / fail-closed live adapter
+│   │   └── useContract.ts      # integrity adapter / local replay guard
+│   ├── security/
+│   │   └── integrity.ts        # policies, issuer registry, scoping, request/nullifier logic
 │   └── utils/
-│       ├── proofGenerator.ts        # on-device witness + circuit
-│       ├── contractHelpers.ts       # user hashing + threshold formatting
-│       └── crypto.ts                # synchronous SHA-256 (verified NIST vectors)
-│
-├── tests/
-│   └── shieldrate.test.ts   # unit tests incl. NIST SHA-256 vectors
-│
-├── CODE_OF_CONDUCT.md
-├── CONTRIBUTING.md
-├── SECURITY.md
-├── LICENSE                  # Apache License 2.0
-├── README.md
-├── package.json
-├── tsconfig.json
-├── vite.config.ts           # base: "./" (static-asset friendly)
-├── tailwind.config.js
-└── postcss.config.js
+│       └── proofGenerator.ts   # pass-only local demo proof flow
+└── tests/
+    └── shieldrate.test.ts      # integrity behavior tests
 ```
 
----
-
-## Architecture
-
-### Compact contract (dual-ledger model)
-
-The contract in `contracts/shieldrate.compact` mirrors Midnight's split into
-public and private state:
-
-- **`ledger`** — public `verifications: Map<Bytes<32>, Verification>`, job
-  requirements, and pass counters. Employer-facing.
-- **`witness`** — `freelancer_income()`, `freelancer_rating()`,
-  `freelancer_completed_jobs()`, `wallet_secret()`. Private, **never uploaded**.
-- **`circuit`** — exported entry points `generate_income_proof`,
-  `generate_rating_proof`, `generate_jobs_proof`, `verify_proof`, and job
-  requirement helpers. Only `{ user, claim, threshold, passed, at }` are
-  disclosed to the ledger.
-
-### Privacy guarantees
-
-- Raw income/rating/job data **never leaves the prover's device**.
-- Only booleans + an anonymous `persistent_hash(wallet_secret)` go on-chain.
-- Employers verify without KYC; freelancers gain portable reputation.
-
----
-
-## Getting started
+## Run the web app
 
 ```bash
-# From the repository root
 npm install
-npm run dev        # start the app at http://localhost:5173
-npm test           # run the vitest suite
-npm run build      # production build → dist/
+npm run dev
+npm run typecheck
+npm test
+npm run build
 ```
 
-### Favicons & social preview
+By default, the app uses `DEMO_ATTESTED`.
 
-Generated by `scripts/make-assets.mjs` (pure Node, no image libs):
+Do **not** set `VITE_SHIELDRATE_MODE=midnight-live` until the actual wallet, generated Compact module, deployment, provider/indexer/prover and network receipt mapping are wired. Live mode intentionally fails closed before that gate.
 
-| File | Purpose |
-|---|---|
-| `public/favicon.svg` | Browser-tab SVG (green shield mark on dark card) |
-| `public/favicon-32.png` | PNG fallback for older browsers |
-| `public/apple-touch-icon.png` | 180×180 iOS home-screen icon |
-| `public/icon-192.png` / `icon-512.png` | Android / PWA icons |
-| `public/og-image.png` | Social-preview image (1200×630) — WhatsApp, Discord, X |
-| `assets/logo.svg` | Full wordmark used in this README |
+## Compile the Compact contract
 
-> **After deploying**, replace every `og-image.png` in the `<meta>` tags
-> with your actual production URL (e.g.
-> `https://yourusername.github.io/midnight-hack/og-image.png`) so WhatsApp,
-> Slack, and Twitter can fetch the image.
+Use the toolchain compatible with the current ledger-8 / 0.31.x environment:
 
-### Demo flow
+```bash
+compact update 0.31.1
+compact compile --compact-path contracts contracts/shieldrate.compact .compact-build/shieldrate
+```
 
-1. Land → **Launch App** → **Connect Wallet** (simulated Lace connect).
-2. On the **Dashboard**, review the verification queue (filter by proof type).
-3. **Generate Proof** → pick a type (Income / Rating / Jobs), drag the
-   threshold slider, watch the on-device proof steps, and read only the
-   disclosed boolean result.
-4. Switch to the **Freelancer View** and **Mobile App** to see credential
-   carrying and portable reputation.
+CI performs the same compile gate.
 
----
+## What is still required for `MIDNIGHT_LIVE`
 
-## Midnight integration
+- real Lace/Midnight wallet connection;
+- generated contract bindings from a successful Compact build;
+- deployed ShieldRate contract address;
+- registered attestation provider + signing service;
+- prover/provider/indexer wiring;
+- real transaction submission and confirmation;
+- receipt fields populated from network responses;
+- independent verification link/receipt for the judge demo.
 
-The frontend is architected so the MidnightJS SDK drops in behind two hooks:
-
-| Hook | File | Role |
-|---|---|---|
-| `useWallet()` | `src/hooks/useWallet.ts` | swap the mock `connect()` for Lace/`@midnight-ntwrk/wallet` |
-| `useContract()` | `src/hooks/useContract.ts` | swap mock proof/verify for deployed `shieldrate.compact` calls |
-
-Each hook mirrors the contract's entry points, so going live is a localized
-change in one file per hook.
-
----
-
-## CI/CD
-
-- **ci.yml** — installs with `npm ci`, runs typecheck, the test suite, and a
-  production build on Node 20 and 22 for every push/PR. Also sanity-checks the
-  Compact contract (ledger + witness + circuit present).
-- **deploy.yml** — on push to `main`, builds and publishes `dist/` to **GitHub
-  Pages** (enable Pages → *GitHub Actions* in repo settings).
-- **issues.yml** — posts a helpful triage comment on every new issue.
-
-## Roadmap
-
-- **Wave 2:** employer batch verification, proof expiration, reputation
-  portability across mock marketplaces. ($4,000)
-- **Wave 3:** multi-chain verification, third-party verification API, real
-  marketplace partnerships. ($5,000)
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues? See
-[SECURITY.md](SECURITY.md). Code of conduct:
-[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+Until those items exist, ShieldRate remains deliberately labelled **DEMO_ATTESTED**, not “live on Midnight.”
 
 ## License
 
-[Apache License 2.0](LICENSE)
-
----
-
-<sub>ShieldRate — Midnight Buildathon Wave 1 · Zero-knowledge reputation for the gig economy.</sub>
+Apache-2.0. The Schnorr verification module preserves the attribution/source note for the Apache-2.0 Midnight `example-zkloan` pattern it is adapted from.
