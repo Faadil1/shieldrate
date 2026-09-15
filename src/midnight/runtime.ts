@@ -176,7 +176,7 @@ export const registerMidnightWorkRequest = async (rawRequest: WorkPolicyRequest)
     policyCode: BigInt(request.policyCode),
     challenge: await hash32(`shieldrate:challenge:v1|${request.challenge}`),
     requestNonce,
-    requestExpiresAtEpoch: BigInt(Math.floor(new Date(request.requestExpiresAt).getTime() / 1000)),
+    requestExpiresAtEpoch: BigInt(new Date(request.requestExpiresAt).getTime()),
   });
 };
 
@@ -201,7 +201,7 @@ export const verifyMidnightProof = async (rawRequest: ProofRequest): Promise<Liv
     claimCode: claimCode(request),
     threshold: thresholdForCircuit(request),
     challenge: await hash32(`shieldrate:challenge:v1|${request.challenge}`),
-    requestExpiresAtEpoch: BigInt(Math.floor(new Date(request.requestExpiresAt).getTime() / 1000)),
+    requestExpiresAtEpoch: BigInt(new Date(request.requestExpiresAt).getTime()),
   }, state);
 };
 

@@ -57,7 +57,7 @@ export function useContract(): UseContractReturn {
               thresholdLabel: bound.thresholdLabel,
               generatedAt,
               requestExpiresAt: bound.requestExpiresAt,
-              credentialExpiresAt: new Date(Number(live.credentialExpiresAtEpoch) * 1000).toISOString(),
+              credentialExpiresAt: new Date(Number(live.credentialExpiresAtEpoch)).toISOString(),
               mode: "midnight-live",
               network: normalizeReceiptNetwork(runtime.wallet?.networkId),
               ledgerStatus: "confirmed",
