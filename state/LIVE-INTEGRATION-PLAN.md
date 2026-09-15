@@ -1,9 +1,10 @@
 # ShieldRate — Midnight Live Integration v1
 
-Status: `INTERACTIVE_LIVE_GATE_PENDING`
+Status: `LIVE_CANDIDATE_DEPLOYED_INTERACTIVE_GATE_PENDING`
 
 Repository: `Faadil1/shieldrate`
 Branch: `midnight-live-integration-v1`
+Candidate: `https://faadil1.github.io/shieldrate/`
 
 Goal: replace the fail-closed `MIDNIGHT_LIVE` placeholder with a real, evidence-backed Midnight path without weakening Proof Integrity v1.
 
@@ -32,16 +33,22 @@ Goal: replace the fail-closed `MIDNIGHT_LIVE` placeholder with a real, evidence-
    - `scripts/issue-demo-credential.mjs` signs the seven-field credential message using the exact generated Compact challenge helper.
    - Issuer secret is never printed or committed.
 
-6. **REAL_TX — PENDING**
+6. **CANDIDATE_DEPLOY — PASS**
+   - GitHub Pages is configured with GitHub Actions.
+   - The `github-pages` environment explicitly allows `midnight-live-integration-v1`.
+   - Candidate build, Compact assets and proving assets uploaded successfully.
+   - `actions/deploy-pages@v4` completed successfully for the live candidate.
+
+7. **REAL_TX — PENDING**
    - One canonical `verifyClaim` must be executed through Lace on the chosen Midnight network.
    - The real transaction ID and block height must be captured.
 
-7. **RECEIPT — IMPLEMENTED / REAL_TX VALIDATION PENDING**
+8. **RECEIPT — IMPLEMENTED / REAL_TX VALIDATION PENDING**
    - After transaction finalization, ShieldRate independently queries indexed contract state and requires the expected `verificationId` receipt to exist.
    - UI exposes live contract address, transaction ID, block height and request evidence only after that independent lookup succeeds.
    - Failed predicates produce no shareable receipt.
 
-8. **LIVE_GATE — CLOSED**
+9. **LIVE_GATE — CLOSED**
    - Do not merge or advertise the branch as network-validated until REAL_TX + indexed receipt succeed.
 
 ## Current security boundary
@@ -58,9 +65,9 @@ Employer requests an approved income band -> holder consents -> issuer-attested 
 
 ## Next interactive gate
 
-1. Open the candidate build in a desktop browser with a compatible Midnight Lace extension.
-2. Set execution mode to `midnight-live` / network `preprod` for the candidate build.
-3. Connect Lace.
+1. Open `https://faadil1.github.io/shieldrate/` in a desktop browser with a compatible Midnight Lace extension.
+2. Confirm the candidate reports `midnight-live` / `preprod` rather than demo mode.
+3. Connect Lace and verify the returned network is exactly preprod.
 4. Deploy ShieldRate (or join a known test contract).
 5. Copy only the displayed `holderBindingField` into the dev issuer command.
 6. Register the issuer public key on-chain.
