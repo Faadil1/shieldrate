@@ -112,7 +112,13 @@ export const initializeShieldRateProviders = async (
   const { connectedAPI, config, addresses, wallet } = connection;
 
   const privateStateProvider = inMemoryPrivateStateProvider<ShieldRatePrivateStateId, ShieldRatePrivateState>();
-  const zkConfigProvider = new FetchZkConfigProvider<ShieldRateCircuitKeys>(window.location.origin, fetch.bind(window));
+
+  // GitHub Pages serves ShieldRate from /shieldrate/. Using window.location.origin
+  // incorrectly points ZK artifact requests to https://faadil1.github.io/keys/... .
+  // Resolve against the actual deployed page directory so keys/ and zkir/ are
+  // fetched from https://faadil1.github.io/shieldrate/{keys,zkir}/... .
+  const zkArtifactBaseUrl = new URL("./", window.location.href).href.replace(/\/$/, "");
+  const zkConfigProvider = new FetchZkConfigProvider<ShieldRateCircuitKeys>(zkArtifactBaseUrl, fetch.bind(window));
 
   // Connector API v4 lets wallets such as 1AM expose a delegated proving provider.
   // Initialize it only when an actual contract operation needs providers; wallet
