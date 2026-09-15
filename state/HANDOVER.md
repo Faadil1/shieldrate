@@ -2,7 +2,7 @@
 
 Resume from `Faadil1/shieldrate` on `winning-intelligence-v4`.
 
-Canonical state: `WINNING_INTELLIGENCE_V4 / SOURCE_VALIDATED_NETWORK_EVIDENCE_PENDING`.
+Canonical state: `WINNING_INTELLIGENCE_V4 / V4_SOURCE_VALIDATED_OPERATOR_GATE_PENDING`.
 
 ## Product thesis
 
@@ -12,7 +12,7 @@ Signature flow:
 
 `COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`
 
-ShieldRate is now deliberately differentiated from generic selective disclosure and salary proof. The employer must commit the standard before holder proof, while failure/refusal leaves no holder-specific public negative record.
+ShieldRate is deliberately differentiated from generic selective disclosure and salary proof. The employer must commit the standard before holder proof, while failure/refusal leaves no holder-specific public negative record.
 
 ## Core V4 mechanisms
 
@@ -23,40 +23,71 @@ ShieldRate is now deliberately differentiated from generic selective disclosure 
 - opportunity-scoped holder nullifier;
 - provider-signed private credential with Schnorr verification;
 - composite policy with one positive receipt;
+- Unix-millisecond Compact time boundary;
 - block-time expiry / future-issued credential rejection;
 - monotonic provider epoch revocation;
 - indexed request/receipt verification after tx finalization;
 - V4 operator UI;
 - lazy-loaded Midnight runtime;
-- refreshed Vite/Vitest toolchain with zero audit findings in remediation validation.
+- refreshed Vite/Vitest toolchain with zero audit findings in the validated Node 22 gate.
 
-## Validation already completed
+## Validation completed
 
-Winning Intelligence V4 / Commit-Before-Know source gate has passed:
+CI run `35006331486` is the source-validation reference for the completed hardening sequence:
 
-- Compact 0.31.1 compile;
-- Node typecheck;
-- 20 tests;
-- production build;
-- npm audit after Vite 8.3.0 / Vitest 5.0.1 refresh: 0 findings.
+- Compact 0.31.1 compile PASS;
+- Node 20 typecheck PASS;
+- Node 20 tests PASS — 25/25;
+- Node 20 build PASS;
+- Node 22 dependency audit PASS — 0 known vulnerabilities at moderate-or-higher threshold;
+- Node 22 typecheck PASS;
+- Node 22 tests PASS — 25/25;
+- Node 22 build PASS.
 
-Run the final branch CI again after any state/docs cleanup before opening/merging the upstream PR.
+Five of the 25 tests execute the generated Compact `Contract` directly. They cover millisecond-vs-second expiry, immutable employer/job policy, cancellation slot closure, and monotonic provider epochs.
 
-## Immediate continuation
+The seconds→milliseconds defect is fixed end-to-end in:
 
-1. Ensure final CI green on current branch head.
-2. Keep `docs/CLAIMS.md` at `LIVE_PENDING` for the network evidence claim.
-3. Give Opeyemi `docs/REAL-TX-RUNBOOK.md`.
-4. Opeyemi performs a real Lace/Preprod V4 run using a fresh job scope.
-5. Capture request tx/block + indexed request.
-6. Capture qualification tx/block + indexed work receipt.
-7. Add `evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-<date>.md` only after actual success.
-8. Promote only the supported network claim.
-9. Then reopen TRACE UI/UX around `COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`.
+- `src/midnight/runtime.ts`;
+- `src/hooks/useContract.ts`;
+- `scripts/issue-demo-credential.mjs`.
+
+The one-shot repair workflow/trigger was removed after the fix was committed.
+
+## Immediate continuation — external operator gate only
+
+Opeyemi has two runbooks:
+
+- `docs/OPEYEMI-LIVE-GATE.md` — concise operator path;
+- `docs/REAL-TX-RUNBOOK.md` — full evidence procedure.
+
+He must perform a real Lace/Preprod V4 run using a fresh job scope and `SR-WORK-02`, then return only public evidence:
+
+1. network + contract address;
+2. provider id + registration tx/block;
+3. job scope + policy code 2;
+4. work request id + tx/block + millisecond expiry;
+5. indexed work request confirmation;
+6. qualification verification id + tx/block;
+7. independently indexed `workReceiptExists=true`.
+
+Only after those values are independently checked may we create:
+
+`evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-<date>.md`
+
+and promote the exact canonical flow from `LIVE_PENDING` to `NETWORK_VERIFIED`.
+
+## TRACE gate
+
+Do not start the next TRACE UI/UX redesign before the operator evidence gate is closed. The agreed order is intentional:
+
+`source lock → real request → real proof → indexed receipt → evidence lock → TRACE UI/UX`
+
+This prevents presentation work from getting ahead of the trust claim.
 
 ## Competitive reminder
 
-Reviewed public Wave 1 projects already cover private eligibility, compensation, compliance, claims and generic selective disclosure. Commit-Before-Know, failure privacy and verifier-policy audit without rejected-worker surveillance are ShieldRate's current differentiated territory.
+Reviewed public Wave 1 projects already cover private eligibility, compensation, compliance, claims and generic selective disclosure. In the Wave 1 repositories reviewed, Commit-Before-Know, failure privacy and verifier-policy audit without rejected-worker surveillance remain ShieldRate's differentiated territory.
 
 ## Future white space
 
