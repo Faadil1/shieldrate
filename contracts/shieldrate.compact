@@ -136,6 +136,38 @@ export pure circuit deriveVerificationId(
   ]);
 }
 
+// Canonical off-chain issuer helper. The demo/testnet issuer uses this generated
+// pure circuit so challenge hashing/encoding cannot drift from the verifier.
+export pure circuit deriveIssuerChallenge(
+  annX: Field,
+  annY: Field,
+  providerPkX: Field,
+  providerPkY: Field,
+  income: Uint<64>,
+  ratingX100: Uint<16>,
+  completedJobs: Uint<32>,
+  issuedAtEpoch: Uint<64>,
+  expiresAtEpoch: Uint<64>,
+  providerEpoch: Uint<64>,
+  holderBindingField: Field
+): Field {
+  return Schnorr_schnorrChallenge7(
+    annX,
+    annY,
+    providerPkX,
+    providerPkY,
+    [
+      income as Field,
+      ratingX100 as Field,
+      completedJobs as Field,
+      issuedAtEpoch as Field,
+      expiresAtEpoch as Field,
+      providerEpoch as Field,
+      holderBindingField
+    ]
+  );
+}
+
 circuit assertAllowedPolicy(claimCode: Uint<8>, threshold: Uint<64>): [] {
   if (claimCode == 1) {
     assert(
