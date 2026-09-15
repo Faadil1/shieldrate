@@ -17,6 +17,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: midnight-live-integration-v1
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -33,4 +34,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package-lock.json
           git commit -m "chore: lock MidnightJS live dependencies"
+          git pull --rebase origin midnight-live-integration-v1
           git push origin HEAD:midnight-live-integration-v1
