@@ -16,7 +16,13 @@ import type { UnboundTransaction } from "@midnight-ntwrk/midnight-js-types";
 import { catchError, concatMap, filter, firstValueFrom, interval, map, take, throwError, timeout } from "rxjs";
 import semver from "semver";
 import { inMemoryPrivateStateProvider } from "./privateStateProvider";
-import type { MidnightWalletSession, ShieldRateCircuitKeys, ShieldRateProviders } from "./types";
+import {
+  shieldRatePrivateStateKey,
+  type MidnightWalletSession,
+  type ShieldRateCircuitKeys,
+  type ShieldRatePrivateStateId,
+  type ShieldRateProviders,
+} from "./types";
 import type { ShieldRatePrivateState } from "./witnesses";
 
 const CONNECTOR_API_RANGE = "4.x";
@@ -47,9 +53,11 @@ export const connectToLace = async (networkId = import.meta.env.VITE_MIDNIGHT_NE
     ),
   );
 
-export const initializeShieldRateProviders = async (
-  privateState: ShieldRatePrivateState,
-): Promise<{ providers: ShieldRateProviders; wallet: MidnightWalletSession; connectedAPI: ConnectedAPI }> => {
+export const initializeShieldRateProviders = async (): Promise<{
+  providers: ShieldRateProviders;
+  wallet: MidnightWalletSession;
+  connectedAPI: ConnectedAPI;
+}> => {
   const requestedNetwork = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID || DEFAULT_NETWORK) as NetworkId;
   setNetworkId(requestedNetwork);
 
@@ -70,7 +78,7 @@ export const initializeShieldRateProviders = async (
     throw new Error("Lace did not provide shielded public keys.");
   }
 
-  const privateStateProvider = inMemoryPrivateStateProvider<string, ShieldRatePrivateState>();
+  const privateStateProvider = inMemoryPrivateStateProvider<ShieldRatePrivateStateId, ShieldRatePrivateState>();
   const zkConfigProvider = new FetchZkConfigProvider<ShieldRateCircuitKeys>(window.location.origin, fetch.bind(window));
 
   const providers: ShieldRateProviders = {
@@ -94,9 +102,6 @@ export const initializeShieldRateProviders = async (
     },
   };
 
-  await privateStateProvider.setContractAddress("pending" as never);
-  await privateStateProvider.set("shieldRatePrivateState", privateState);
-
   return {
     providers,
     connectedAPI,
@@ -108,3 +113,5 @@ export const initializeShieldRateProviders = async (
     },
   };
 };
+
+export { shieldRatePrivateStateKey };
