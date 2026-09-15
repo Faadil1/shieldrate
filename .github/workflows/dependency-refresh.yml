@@ -12,11 +12,23 @@ permissions:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: winning-intelligence-v4
+      - name: Install Compact toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/download/compact-v0.5.2/compact-installer.sh | sh
+          echo "$HOME/.compact/bin" >> "$GITHUB_PATH"
+      - name: Pin and compile Compact
+        run: |
+          export PATH="$HOME/.compact/bin:$PATH"
+          compact update 0.31.1
+          rm -rf .compact-build/shieldrate
+          compact compile --compact-path contracts contracts/shieldrate.compact .compact-build/shieldrate
       - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
