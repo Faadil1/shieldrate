@@ -1,6 +1,6 @@
 # ShieldRate — Enterprise SaaS Scale V3
 
-Status: `BUILD_COMPOSED_CI_PENDING`
+Status: `BUILD_VALIDATED_PAGES_ENV_GATE`
 Date: 2026-09-15
 Repository: `Faadil1/shieldrate`
 Branch: `ui-ux-enterprise-saas-v3`
@@ -51,12 +51,23 @@ Current or evidence-backed surfaces are presented as such. Features that are not
 - Demo vs live truthfulness remains explicit.
 - Failed predicates still create no public negative receipt.
 
-## Gates
+## Validation
 
-1. Compact 0.31.1 compile.
-2. Node 20 typecheck/tests/build.
-3. Node 22 typecheck/tests/build.
-4. GitHub Pages candidate build.
-5. `github-pages` environment permits `ui-ux-enterprise-saas-v3`.
-6. Opeyemi / visual acceptance review.
-7. Keep merge closed until review.
+- Compact 0.31.1 compile: PASS
+- Node 20 typecheck: PASS
+- Node 20 tests: PASS
+- Node 20 production build: PASS
+- Node 22 typecheck: PASS
+- Node 22 tests: PASS
+- Node 22 production build: PASS
+- GitHub Pages candidate build/artifact: PASS
+- GitHub Pages deploy: BLOCKED before runner by `github-pages` branch allow-list for `ui-ux-enterprise-saas-v3`
+
+A first V3 build attempt exposed a standalone Tailwind `@layer` packaging issue in `src/enterprise.css`; it was corrected without changing product behavior or visual intent, and the subsequent Node 20/22 builds are green.
+
+## Next gates
+
+1. Add `ui-ux-enterprise-saas-v3` to the `github-pages` environment deployment branch allow-list.
+2. Re-run only the failed Pages deploy job.
+3. Review the enterprise-scale visual candidate with Opeyemi.
+4. Keep merge closed until acceptance.
