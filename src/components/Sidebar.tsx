@@ -1,3 +1,5 @@
+import { executionMode } from "../security/integrity";
+
 export type SectionKey = "dashboard" | "candidates" | "verifications" | "post" | "settings" | "billing";
 
 interface SidebarProps {
@@ -5,77 +7,82 @@ interface SidebarProps {
   onNavigate: (key: SectionKey) => void;
 }
 
-const CORE: { key: SectionKey; label: string }[] = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "candidates", label: "Candidates" },
-  { key: "verifications", label: "Verifications" },
-  { key: "post", label: "Post Job" },
+const CORE: { key: SectionKey; code: string; label: string; note: string }[] = [
+  { key: "dashboard", code: "01", label: "Verification desk", note: "Evidence overview" },
+  { key: "candidates", code: "02", label: "Subjects", note: "Scoped holders" },
+  { key: "verifications", code: "03", label: "Receipt ledger", note: "Shareable proofs" },
+  { key: "post", code: "04", label: "New request", note: "Generate proof" },
 ];
 
-const ACCOUNT: { key: SectionKey; label: string }[] = [
-  { key: "settings", label: "Settings" },
-  { key: "billing", label: "Billing" },
+const ACCOUNT: { key: SectionKey; code: string; label: string }[] = [
+  { key: "settings", code: "A1", label: "Runtime setup" },
+  { key: "billing", code: "A2", label: "Account" },
 ];
 
-function Item({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
+export function Sidebar({ active, onNavigate }: SidebarProps) {
+  const live = executionMode() === "midnight-live";
+
   return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm w-full text-left transition-all ${
-        active
-          ? "bg-rate-900 text-rate-500"
-          : "text-mist-500 hover:bg-night-800 hover:text-neutral-200"
-      }`}
-    >
-      <span
-        className={`w-4 h-4 rounded-[4px] bg-current flex-shrink-0 ${
-          active ? "opacity-60" : "opacity-30"
-        }`}
-      />
-      {label}
-    </button>
+    <aside className="hidden w-[238px] flex-shrink-0 border-r border-[#c8cac2] bg-[#f2f1e9]/95 lg:flex lg:flex-col">
+      <button onClick={() => onNavigate("dashboard")} className="border-b border-[#c8cac2] px-6 py-7 text-left">
+        <div className="text-[17px] font-black tracking-[-0.045em] text-[#171b1d]">SHIELDRATE</div>
+        <div className="evidence-mono mt-1 text-[8px] uppercase tracking-[0.18em] text-[#6b706e]">verification desk</div>
+      </button>
+
+      <div className="flex-1 px-3 py-5">
+        <div className="micro-label px-3 pb-2">Workspace</div>
+        <div className="space-y-1">
+          {CORE.map((item) => (
+            <NavItem
+              key={item.key}
+              code={item.code}
+              label={item.label}
+              note={item.note}
+              active={active === item.key}
+              onClick={() => onNavigate(item.key)}
+            />
+          ))}
+        </div>
+
+        <div className="micro-label px-3 pb-2 pt-7">System</div>
+        <div className="space-y-1">
+          {ACCOUNT.map((item) => (
+            <NavItem
+              key={item.key}
+              code={item.code}
+              label={item.label}
+              active={active === item.key}
+              onClick={() => onNavigate(item.key)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-[#c8cac2] p-5">
+        <div className={`mode-badge ${live ? "mode-live" : "mode-demo"}`}>{live ? "Midnight live" : "Demo attested"}</div>
+        <p className="mt-3 text-[10px] leading-4 text-[#6b706e]">
+          Failed predicates stay private. No receipt is published unless the requested policy passes.
+        </p>
+      </div>
+    </aside>
   );
 }
 
-export function Sidebar({ active, onNavigate }: SidebarProps) {
+function NavItem({ code, label, note, active, onClick }: { code: string; label: string; note?: string; active: boolean; onClick: () => void }) {
   return (
-    <aside className="w-60 bg-night-850 border-r border-night-800 p-4 flex flex-col gap-1 flex-shrink-0">
-      <button
-        onClick={() => onNavigate("dashboard")}
-        className="text-lg font-extrabold tracking-tight text-white text-left px-3 pb-5 border-b border-night-800 mb-3"
-      >
-        shield<span className="text-rate-500">rate</span>
-      </button>
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-mist-700 px-3 pt-4 pb-1.5">
-        Core
-      </div>
-      {CORE.map((item) => (
-        <Item
-          key={item.key}
-          active={active === item.key}
-          label={item.label}
-          onClick={() => onNavigate(item.key)}
-        />
-      ))}
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-mist-700 px-3 pt-4 pb-1.5">
-        Account
-      </div>
-      {ACCOUNT.map((item) => (
-        <Item
-          key={item.key}
-          active={active === item.key}
-          label={item.label}
-          onClick={() => onNavigate(item.key)}
-        />
-      ))}
-    </aside>
+    <button
+      onClick={onClick}
+      className={`group grid w-full grid-cols-[34px_1fr] items-start gap-1 rounded-[4px] border px-3 py-3 text-left transition-colors ${
+        active
+          ? "border-[#171b1d] bg-[#f8f7f0]"
+          : "border-transparent text-[#6b706e] hover:border-[#c8cac2] hover:bg-[#f8f7f0]/70"
+      }`}
+    >
+      <span className={`evidence-mono pt-[2px] text-[9px] font-bold ${active ? "text-[#1f6b4d]" : "text-[#9da39d]"}`}>{code}</span>
+      <span>
+        <span className={`block text-[12px] font-bold ${active ? "text-[#171b1d]" : "text-[#4d5451]"}`}>{label}</span>
+        {note ? <span className="mt-0.5 block text-[9px] text-[#8a8f8b]">{note}</span> : null}
+      </span>
+    </button>
   );
 }
