@@ -5,49 +5,58 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   verify:
-    name: Verify (Node ${{ matrix.node }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [20, 22]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Run tests
-        run: npm test
-      - name: Build
-        run: npm run build
-
-  compact:
-    name: Compile Compact contract
+    name: Verify Midnight browser build
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Install Compact toolchain
         run: |
           curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/download/compact-v0.5.2/compact-installer.sh | sh
           echo "$HOME/.compact/bin" >> "$GITHUB_PATH"
+
       - name: Pin Compact compiler
         run: |
           export PATH="$HOME/.compact/bin:$PATH"
           compact update 0.31.1
           compact compile --version
-      - name: Compile ShieldRate
+
+      - name: Install dependencies and refresh lockfile
+        run: npm install --no-audit --no-fund
+
+      - name: Compile ShieldRate contract
         run: |
           export PATH="$HOME/.compact/bin:$PATH"
-          compact compile --compact-path contracts contracts/shieldrate.compact .compact-build/shieldrate
+          npm run compact
+
+      - name: Sync proving assets
+        run: npm run sync:midnight
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build production app
+        run: npm run build
+
+      - name: Upload refreshed lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: shieldrate-package-lock
+          path: package-lock.json
+          if-no-files-found: error
