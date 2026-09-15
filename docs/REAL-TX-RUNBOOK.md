@@ -1,57 +1,53 @@
-# ShieldRate — Canonical Lace / Real Transaction Runbook
+# ShieldRate — Canonical Lace / Preprod V4 Runbook
 
 Status: `PENDING_OPERATOR_RUN`
 Owner: Opeyemi / operator with Lace + funded Midnight environment
 
-This runbook exists so the final live claim is promoted from evidence, not inference.
+## Promotion gate
 
-## Gate
+V4 becomes `NETWORK_VERIFIED` only after one coherent run captures **both** the employer request and holder qualification on Midnight and independently confirms the expected work receipt.
 
-A passing build is not enough. A transaction id is not enough. ShieldRate may call V4 `NETWORK_VERIFIED` only after all of the following are captured from one coherent run:
+A green build is not enough. A transaction id is not enough.
 
-1. Lace connected to the intended Midnight network.
-2. ShieldRate contract deployed or joined.
-3. Attestation provider registered.
-4. Holder binding established.
-5. Provider-signed credential loaded into private state.
-6. `verifyWorkPolicy` submitted for a fresh employer/job scope.
-7. Transaction finalized.
-8. Expected work verification id derived locally.
-9. `workReceiptExists(verificationId)` returns true from independently queried contract state.
-10. Contract address, tx id and block height are recorded.
+## Canonical scenario
 
-## Recommended policy for the canonical run
+Use `SR-WORK-02` because the current demo credential satisfies it while `SR-WORK-03` does not.
 
-Use `SR-WORK-02` (`policyCode = 2`) because the current demo credential satisfies it while `SR-WORK-03` does not. Use a brand-new job scope for the live run so the scope-stable policy nullifier has never been consumed.
+Use a fresh canonical job scope, for example:
 
-## Operator sequence
+`sr-wave1-canonical-<date>-01`
 
-### A. Environment
+Do not reuse a job scope that already has a registered request: Commit-Before-Know deliberately makes the first registered policy immutable for that employer/job scope.
 
-- Open the V4 build in a browser with Lace installed.
-- Confirm the displayed execution mode is `MIDNIGHT_LIVE`.
-- Confirm Lace reports the intended network.
-- Confirm proof-server / provider endpoints are reachable.
+## A. Environment
 
-### B. Contract
-
-Either:
-
-- deploy a fresh ShieldRate contract and copy the resulting address, or
-- join the agreed canonical contract address.
+- Open the V4 build with Lace installed.
+- Confirm execution mode is `MIDNIGHT_LIVE`.
+- Confirm intended network.
+- Confirm proof/indexer endpoints are reachable.
 
 Record:
 
 ```text
 network=
-contractAddress=
-deployedOrJoined=
 operatorTimestamp=
 ```
 
-### C. Provider
+## B. Contract
 
-Register the canonical test issuer/provider id and public key.
+Deploy a fresh V4 contract or join the agreed canonical V4 address.
+
+Record:
+
+```text
+contractAddress=
+deployOrJoinTx=
+deployOrJoinBlock=
+```
+
+## C. Provider
+
+Register the canonical test issuer public key.
 
 Record:
 
@@ -59,67 +55,117 @@ Record:
 providerId=
 providerRegistrationTx=
 providerRegistrationBlock=
+providerEpoch=
 ```
 
-Do not record the issuer private key.
+Never record the issuer private key.
 
-### D. Credential
+## D. Holder credential
 
-Load the provider-signed credential into holder private state. Confirm the holder binding used by the issuer matches the active holder secret.
+1. Generate/read the holder binding from the operator dossier.
+2. Issue a provider-signed credential bound to that holder.
+3. Import the signed payload into holder private state.
 
-Never paste the holder secret or issuer private key into an evidence file.
+Never commit holder secret, wallet seed, issuer secret or raw credential values to evidence.
 
-### E. Qualification request
+## E. Employer commits policy before proof
 
-Use:
+With the intended employer Lace wallet active:
+
+- job scope: fresh canonical value;
+- policy: `SR-WORK-02` / code `2`;
+- fresh challenge;
+- short future expiry.
+
+Execute **Commit policy before proof**.
+
+Capture public evidence:
 
 ```text
+employerWallet=<public identifier only if appropriate>
+jobScope=<canonical public label or its hash>
 policyCode=2
-employerScope=<fresh canonical employer scope>
-jobScope=<fresh canonical job scope>
-challenge=<fresh random challenge>
-requestExpiresAtEpoch=<short future deadline>
+workRequestId=
+workRequestTx=
+workRequestBlock=
+requestExpiresAt=
+contractAddress=
 ```
 
-Submit `verifyWorkPolicy`.
+Then independently query indexed contract state and confirm:
 
-### F. Evidence capture
+```text
+workRequestExists=true
+policyCode=2
+cancelled=false
+```
 
-After finalization, record only public evidence:
+## F. Holder consents and proves
+
+The holder proves the registered `workRequestId`. The proof must read the already-committed policy from contract state; do not submit a new threshold/policy at proof time.
+
+After finalization capture:
 
 ```text
 verificationId=
-requestHash=
+workRequestId=
 scopedSubject=
-policyCode=2
 providerId=
-txId=
-blockHeight=
+policyCode=2
+qualificationTx=
+qualificationBlock=
 contractAddress=
-indexedReceiptExists=true
 ```
 
-Then independently query the contract state / indexer path and confirm the expected `verificationId` is present in `workReceipts`.
+Then independently query indexed state and confirm:
+
+```text
+workReceiptExists=true
+```
+
+## G. Negative-path checks
+
+Where practical, capture at least one source/test proof for each invariant rather than creating unnecessary public failed transactions:
+
+- second request under same employer/job scope is rejected;
+- cancelled request cannot be proven;
+- expired request cannot be proven;
+- `SR-WORK-03` fails for the demo private credential and creates no public work receipt;
+- second successful qualification for the same holder/employer/job is blocked.
+
+## H. Evidence bundle
+
+Only after a successful live run create:
+
+`evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-<YYYY-MM-DD>.md`
+
+Include only public evidence:
+
+- network;
+- contract address;
+- provider registration tx/block;
+- work request id + tx/block;
+- policy code + expiry;
+- qualification verification id + tx/block;
+- independent indexed request/receipt checks;
+- exact reproduction steps.
+
+Do **not** include secrets, seed phrases, raw income/rating/jobs, private signature secrets or holder secret.
 
 ## Failure rules
 
-If any step fails:
+If any network step fails:
 
-- do not create a `NETWORK_VERIFIED` evidence record;
-- preserve the error and step name;
 - keep `docs/CLAIMS.md` at `LIVE_PENDING`;
-- repair the path and run again with a fresh job scope where required.
+- record step/error privately for repair;
+- do not manufacture a successful evidence artifact;
+- if the registered request itself is wrong, use a **new job scope** after repair because the original standard is intentionally immutable;
+- if the request is correct but holder proof fails before receipt insertion, the same registered request may be retried with valid holder state while it remains active.
 
-A failed qualification attempt should not create a public negative work receipt.
+## Promotion
 
-## Evidence file after success
+After the evidence file is committed and independently checked, change only the supported claim:
 
-Only after a successful run, add something like:
+`canonical V4 registered request + qualification receipt → NETWORK_VERIFIED`
 
-`evidence/network/V4-WORK-POLICY-PREPROD-<YYYY-MM-DD>.md`
-
-It should contain the public fields above plus exact reproduction steps. Do not include secrets, seed phrases, raw credential values or private signatures.
-
-After that file is committed and independently checked, update `docs/CLAIMS.md`:
-
-`V4 work qualification has a canonical real Lace transaction → NETWORK_VERIFIED`
+Do not promote unrelated production-governance, legal-fairness, billing, RBAC or integration claims.

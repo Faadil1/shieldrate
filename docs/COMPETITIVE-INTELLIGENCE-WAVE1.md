@@ -2,138 +2,148 @@
 
 Date: 2026-09-15
 
-This document is strategy input, not a claim that every public Midnight repository is an accepted AKINDO submission. Projects below are included only where the repository itself identifies the Midnight Buildathon/Wave 1 or the current public work is directly relevant to the competitive field.
+This is a reviewed-field intelligence record, not a claim that every public repository is an accepted AKINDO submission or that no undiscovered project shares a mechanism.
 
-## Field read
+## Strong public field references reviewed
 
 ### ZK-Sentinel — `mdlog/zk-sentinel`
 
-Signature: prove a trading strategy cleared a public risk bar on custodian-attested data without revealing strategy or returns.
+Public risk standard + private trading strategy/returns; strong custodian provenance, adversarial tests, replay and block-time constraints.
 
-High-signal strengths:
-
-- 48 tests against real compiled circuits;
-- explicit public/private dual-ledger test;
-- deliberate witness-tampering attacks;
-- registered data custodian;
-- replay + block-time freshness;
-- independent Python arithmetic reference;
-- clear exact claims and non-claims.
-
-Lesson for ShieldRate: source-level privacy claims need adversarial tests and exact evidence, not only happy paths.
+**Lesson:** source-level privacy claims need tamper/falsification evidence, not only happy paths.
 
 ### VINPassport — `VINPassport/VINPassport`
 
-Signature: a privacy-preserving vehicle passport tied to a concrete regulatory wedge.
+Privacy-preserving vehicle passport with a concrete regulatory wedge, real Preprod evidence, evaluator path and mutation testing.
 
-High-signal strengths:
-
-- deployed Midnight Preprod contract with committed deployment evidence;
-- live buyer/intake/proof-explorer surfaces;
-- 67 contract tests + app + SDK assertions;
-- mutation tests showing guards actually matter;
-- explicit evaluator path;
-- blockchain abstracted away from the end user;
-- regulatory/business urgency.
-
-Lesson for ShieldRate: a real Preprod receipt and a buyer-specific workflow are stronger than broad SaaS breadth.
+**Lesson:** a buyer-specific workflow plus independently checkable deployment evidence beats broad feature count.
 
 ### Candor — `PhiBao/candor`
 
-Signature: verified, unlinkable, aggregate-only compensation benchmarking.
+Verified, unlinkable, aggregate-only compensation benchmarking. Strong worker-facing thesis, Preprod flow and epoch nullifiers. Its README explicitly places multi-issuer/zkEmail in later waves.
 
-High-signal strengths:
-
-- current compensation/privacy wedge;
-- epoch nullifiers;
-- aggregate histograms;
-- clear worker-facing market thesis and growth loop;
-- claimed end-to-end Preprod path with explicit hosted-prover caveat.
-
-Collision risk: ShieldRate should not lead with generic salary verification or compensation analytics.
+**Collision:** do not position ShieldRate as compensation benchmarking or generic salary privacy.
 
 ### Umbra — `nelsonksh/umbra`
 
-Signature: blind evaluation with `Submit → Grade → Reveal`.
+Blind evaluation with a memorable `Submit → Grade → Reveal` protocol.
 
-High-signal strengths:
-
-- memorable three-step protocol;
-- clear reason blockchain/privacy is necessary;
-- real-network local smoke test with proofs and block confirmations;
-- browser/Lace frontend;
-- focused security tests and evaluator instructions.
-
-Lesson for ShieldRate: the judge should remember one signature behavior, not a menu of capabilities.
+**Lesson:** the judge should remember one protocol sequence.
 
 ### BACCHIRI! — `commun-platform/midnight_buildathons_bacchili`
 
-Signature: prove measurement threshold compliance without exposing sensor values.
+Private sensor-threshold compliance with Preprod/field evidence, large tests and judge assurance artifacts.
 
-High-signal strengths:
-
-- eight-circuit contract deployed to Preprod;
-- field-operation evidence;
-- claim-to-evidence matrix and judge Q&A;
-- review runbook;
-- large automated test surface;
-- operating/cost evidence and partner context.
-
-Lesson for ShieldRate: judge assurance is itself part of product quality.
+**Lesson:** evidence packaging is part of product quality.
 
 ### ClearScope — `trinnode/clearscope`
 
-Signature: general selective-disclosure policy layer with holder/verifier/issuer/system personas.
+Broad selective-disclosure/compliance SaaS with multiple roles and policy composition.
 
-High-signal strengths:
+**Collision:** do not become generic selective-disclosure SaaS.
 
-- composed disclosure policies;
-- multi-role SaaS console;
-- access/licensing model;
-- demo personas and guided walkthrough;
-- broad compliance positioning.
+### Attesta — `ceciliagalvaoo/Attesta`
 
-Collision risk: ShieldRate should not become a generic selective-disclosure or generic compliance SaaS platform.
+Reusable compliance attestations with live validity/revocation, chain time, Preprod evidence, detailed limitations and real usability sessions.
+
+**Lesson:** lifecycle semantics, explicit limits and user validation are a high bar.
+
+### Redress — `Emmanuellsensai/redress-app`
+
+Private consumer claims/evidence with AI verdicts, commitments and a reported Preprod contract.
+
+**Lesson:** privacy is stronger when embedded in an end-to-end domain workflow.
+
+### VeilPass — `himanshu748/veilpass`
+
+Private credential → public eligibility receipt with honest local-vs-Preprod limits.
+
+**Collision:** a generic eligibility receipt is not enough differentiation for ShieldRate.
+
+## White-space analysis
+
+### 1. Commit-Before-Know — exploited in V4
+
+The reviewed field contains strong holder-side privacy, credential validity, revocation and selective-disclosure systems. We did **not surface another reviewed public Wave 1 project centered on a wallet-authenticated employer fixing hiring/contractor criteria before the candidate proof**.
+
+ShieldRate now implements this in Compact:
+
+`Employer commits policy → Holder consents → Private qualification → QUALIFIED`
+
+The work request fixes one policy for one employer/job scope. Cancelling does not free that scope for a hidden replacement.
+
+### 2. Failure privacy — exploited in V4
+
+Many verification products focus on what a successful proof discloses. ShieldRate also treats **the absence of qualification** as sensitive.
+
+A failed or declined qualification leaves no holder-specific public rejection record. The employer request can be public; the candidate appears only through a successful scoped qualification receipt.
+
+### 3. Verifier accountability without applicant surveillance — exploited in V4
+
+Employer standards are public request objects, while candidate evidence and failed attempts are not. This means policy history can be audited independently of applicant records.
+
+This creates a useful asymmetry:
+
+- auditors can inspect what standards an employer committed;
+- they do not need candidate salary/reputation/job-count data;
+- they do not get a public list of rejected workers.
+
+### 4. Opportunity-scoped privacy budget — exploited in V4
+
+The work nullifier is holder + authenticated employer + job scope. It excludes challenge and policy code. A successful proof therefore consumes the public qualification budget for that opportunity instead of letting a verifier repeatedly interrogate the same candidate under new request parameters.
+
+### 5. Federated/multi-source work evidence — high-value future white space
+
+The reviewed field did not surface a Wave 1 project composing multiple independent work-data issuers into one private hiring qualification proof. Candor explicitly lists multi-issuer as later-wave work.
+
+ShieldRate does **not** claim this today. The current V4 credential is signed by one registered provider. This is the clearest next protocol expansion after the canonical V4 Preprod proof is locked: independent income/reputation/work-history issuers bound to the same holder secret and composed into one qualification proof.
+
+We deliberately do not destabilize the Wave 1 canonical proof path by claiming unfinished federation as shipped.
 
 ## Strategic decision
 
-ShieldRate's defensible Wave 1 wedge is:
+ShieldRate's Wave 1 wedge is:
 
-**private workforce / contractor qualification with bargaining privacy.**
+**private workforce / contractor qualification with bargaining privacy and verifier-side criteria discipline.**
 
 The flagship question is not:
 
-- "Is salary above X?"
-- "Can I selectively disclose any attribute?"
-- "Can I benchmark compensation?"
+- “Is salary above X?”
+- “Can I selectively disclose any credential?”
+- “Can I benchmark compensation?”
 
 It is:
 
-> **Does this issuer-attested worker satisfy the fixed qualification standard for this specific opportunity?**
+> **What standard did this employer commit before seeing my outcome, and can I prove privately that I satisfy it?**
 
-The answer is one public `QUALIFIED` receipt. The worker does not expose exact financial or reputation data, and the employer cannot learn component-level pass/fail outcomes by decomposing the standard.
+The public output is a scoped `QUALIFIED` receipt. Raw work data, margin above thresholds and component outcomes stay private.
 
 ## Hidden spots found and disposition
 
-| Hidden spot | Field consequence | V4 action |
+| Hidden spot | Risk | V4 action |
 |---|---|---|
-| Request expiry only enforced in DApp | below strong Compact competitors | enforce with block time in circuit |
-| Fixed bands still permit repeated valid probing | cumulative privacy leak | composite policy + scope-stable policy nullifier |
-| Income proof as headline collides with prior/current privacy products | weak uniqueness | reposition to private work qualification |
-| Enterprise V3 breadth risks ClearScope collision | generic SaaS framing | keep breadth as architecture; make work qualification the signature primitive |
-| README stale after live adapter merge | judge confusion / trust loss | rewrite current trust boundary |
-| No evaluator evidence map | weaker QA story | add Judge Review + Claim Ledger |
-| No canonical network receipt for V4 | weaker than Preprod leaders | explicit real-tx gate/runbook |
-| Dependency audit previously reported vulnerabilities | hidden reliability risk | keep open in claim ledger; remediate separately, never call clean |
+| Proof-time employer scope was caller supplied | verifier spoofing | employer identity now derives from `ownPublicKey()` |
+| Fixed bands still allowed adaptive valid queries | cumulative privacy leakage | immutable composite work request |
+| Policy-specific nullifier allowed switching policies | repeated probing | opportunity-scoped nullifier |
+| Provider removal could reset epoch on re-registration | old credential resurrection | preserve + increment provider epoch on removal |
+| Request expiry depended too heavily on DApp | weak trust boundary | block-time enforcement in Compact |
+| Successful tx id could be mistaken for receipt proof | false verification | independent indexed `workReceiptExists` required |
+| Default bundle eagerly loaded Midnight runtime | slow judge first impression | dynamic runtime import; entry JS reduced materially |
+| Vite/Vitest audit findings | avoidable supply-chain noise | upgrade to Vite 8.3.0 / Vitest 5.0.1; remediation audit = 0 |
+| Generic SaaS breadth collided with field | weak memorability | signature protocol now dominates product thesis |
+
+## Remaining honest limits
+
+- An authenticated `jobScope` is not proof that two different IDs cannot refer to the same real-world requisition.
+- One registered provider currently attests the composite credential; federated field issuers are future work.
+- A fixed policy is not automatically a lawful/fair policy.
+- V4 still needs the canonical real Lace/Preprod request + qualification + indexed receipt evidence bundle.
 
 ## Next competitive bar
 
-Do not spend the next cycle adding more menu items. The next win condition is:
-
-1. `verifyWorkPolicy` source + CI green;
-2. adversarial/privacy tests green;
-3. real Lace/Preprod transaction captured;
-4. independently indexed receipt captured;
-5. only then redesign UI around the signature behavior.
-
-The UI should eventually dramatize one memorable sequence: **Request → Consent → Private qualification → Qualified receipt**, not the existence of ten SaaS navigation items.
+1. final source/dependency CI green;
+2. real registered work request on Midnight;
+3. real private qualification transaction;
+4. independent indexed receipt capture;
+5. judge-facing demo built around `COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`;
+6. only then reopen the deeper TRACE UI/UX redesign.

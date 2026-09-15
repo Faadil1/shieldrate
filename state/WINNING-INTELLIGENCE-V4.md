@@ -1,72 +1,92 @@
 # ShieldRate — Winning Intelligence V4
 
-Status: `BUILD_COMPOSED_CI_PENDING`
+Status: `SOURCE_VALIDATED / NETWORK_EVIDENCE_PENDING`
 Date: 2026-09-15
 Repository: `Faadil1/shieldrate`
 Branch: `winning-intelligence-v4`
-Base: `ui-ux-enterprise-saas-v3` (already merged upstream in `opeblow/shieldrate#2`)
 
 ## Trigger
 
-After Enterprise SaaS V3 was approved and merged, the next request was to pause visual expansion, re-run Winning Intelligence, inspect the current Wave 1 field, identify hidden spots, apply the strongest product/security/evidence improvements, and only then reopen UI/UX.
+After Proof Integrity, Midnight Live and Enterprise SaaS V3 were merged upstream, the workstream paused visual expansion and re-ran Winning Intelligence against the public Wave 1 field.
 
 ## Field conclusion
 
-The current Wave 1 field contains several strong evidence-heavy products, including ZK-Sentinel, VINPassport, Candor, Umbra, BACCHIRI! and ClearScope.
+Strong reviewed projects already occupy:
 
-Two collision risks are material:
+- private eligibility credentials;
+- compensation privacy;
+- compliance attestations;
+- private claims;
+- broad selective-disclosure SaaS;
+- domain-specific ZK threshold proofs.
 
-1. compensation/private-income territory is already crowded;
-2. generic selective-disclosure / compliance SaaS is already occupied.
+ShieldRate therefore does not lead with “salary > X” or generic selective disclosure.
 
-ShieldRate therefore narrows its signature behavior to **private work qualification with bargaining privacy**.
+## Canonical product wedge
 
-## Signature behavior
+**Private workforce / contractor qualification with bargaining privacy and verifier-side criteria discipline.**
 
-`Employer policy request → holder consent → private composite proof → QUALIFIED receipt`
+Memory sentence:
 
-The verifier does not receive separate income/rating/jobs results.
+**Prove you qualify for the work. Do not reveal why.**
 
-## V4 structural changes
+Signature sequence:
 
-- new `verifyWorkPolicy` Compact circuit;
-- three fixed `SR-WORK-*` composite standards;
-- one `WorkQualificationReceipt` public object;
-- no component-level outcome fields in that receipt;
-- request expiry enforced with Compact block time;
-- future-issued credentials rejected with Compact block time;
-- scope-stable work-policy nullifier blocks re-probing the same policy by changing challenge;
-- new live MidnightJS `verifyWorkPolicy` path;
-- post-finalization `workReceiptExists` independent ledger check;
-- local parity helpers + qualification proof generator;
-- expanded tests for composite qualification and anti-probing semantics;
-- updated README current-state truth boundary;
-- Judge Review guide;
-- machine-readable-style claim/evidence status ledger;
-- real Lace transaction runbook;
-- competitive intelligence record.
+`COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`
 
-## Preserved invariants
+## Unique protocol layer implemented
 
-- provider Schnorr signature remains mandatory;
-- raw work values remain private;
-- employer/job scoped subject remains canonical;
-- provider epoch revocation remains canonical;
-- failed predicates create no public negative receipt;
-- demo/live distinction remains explicit;
-- no production capability is promoted from preview without evidence.
+### Commit-Before-Know
 
-## Open gates
+The employer wallet registers one immutable qualification standard for one job scope before candidate proof.
 
-1. Compact 0.31.1 compile for V4.
-2. Node 20 typecheck/tests/build.
-3. Node 22 typecheck/tests/build.
-4. inspect dependency audit; existing vulnerabilities are not declared fixed.
-5. Opeyemi canonical Lace run for `verifyWorkPolicy`.
-6. capture tx id + block + contract + indexed work receipt.
-7. promote claim ledger to `NETWORK_VERIFIED` only after gate 6.
-8. UI/UX V4 redesign remains deliberately closed until the product/evidence gates above are stable.
+- employer identity derives from `ownPublicKey()`;
+- one `jobRequests` entry per employer + job;
+- cancellation does not permit silent replacement;
+- holder proves the registered request rather than proof-time thresholds;
+- failed/refused holders leave no public negative record;
+- successful holder gets one opportunity-scoped public receipt.
+
+Reviewed public Wave 1 repos did not surface another project centered on this exact employer-authenticated pre-commit mechanism. Treat that as reviewed-field differentiation, not a universal exclusivity claim.
+
+## Hardening completed
+
+- provider epoch resurrection closed;
+- opportunity-scoped anti-probing nullifier;
+- verifier-supplied employer scope removed from flagship path;
+- block-time request expiry;
+- future credential issuance rejection;
+- provider Schnorr attestation preserved;
+- independent indexed request/receipt reads;
+- V4 operator path exposed in live setup dossier;
+- Midnight runtime dynamically loaded;
+- main judge-facing JS materially reduced;
+- Vite/Vitest upgraded;
+- dependency remediation audit reported zero vulnerabilities;
+- 20 app-level integrity/privacy tests pass in validated remediation run;
+- Compact 0.31.1 compiles the V4 contract.
+
+## Additional white space captured without overclaiming
+
+- public employer-policy history can be audited without public rejected-worker records;
+- holder refusal/failure privacy is part of the protocol, not only successful disclosure minimization;
+- federated multi-source work evidence is the clearest future expansion, but remains unshipped until V4 network evidence is locked.
+
+## Remaining gate
+
+Opeyemi must execute the canonical Lace/Preprod run:
+
+1. deploy/join V4 contract;
+2. register provider;
+3. commit `SR-WORK-02` under a fresh employer/job scope;
+4. confirm indexed work request;
+5. load holder-attested credential;
+6. prove registered policy;
+7. capture tx/block/verification id;
+8. independently confirm `workReceiptExists=true`.
+
+Until then V4 remains `NETWORK_EVIDENCE_PENDING`.
 
 ## UI decision
 
-Do not expand generic SaaS breadth further before the next visual pass. The next UI should dramatize the signature qualification sequence and make the privacy asymmetry immediately legible.
+Do not reopen broad UI redesign until the network gate is stable. The next TRACE UI/UX pass must make the signature sequence visually dominant instead of adding more generic SaaS breadth.

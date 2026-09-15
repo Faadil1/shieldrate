@@ -4,61 +4,72 @@ Date: 2026-09-15
 Workstream: `WINNING_INTELLIGENCE_V4`
 Repository: `Faadil1/shieldrate`
 Branch: `winning-intelligence-v4`
-Status: `BUILD_COMPOSED_CI_PENDING`
+Status: `SOURCE_VALIDATED_NETWORK_EVIDENCE_PENDING`
 
-## Upstream state
+## Upstream baseline
 
 - `opeblow/shieldrate#1` — Proof Integrity v1 — merged.
 - `opeblow/shieldrate#2` — Midnight Live integration + Enterprise SaaS V3 — merged.
 
-The upstream product now contains the real Midnight adapter and the approved Enterprise SaaS V3 visual direction. The final canonical Lace transaction / independently indexed receipt remains the open live-evidence gate.
+## Product state
 
-## Winning Intelligence V4 decision
+Winning Intelligence V4 repositions ShieldRate around **private work qualification with bargaining privacy** and adds a verifier-accountability primitive: **Commit-Before-Know**.
 
-The current Wave 1 field is strong enough that ShieldRate should not compete as a generic selective-disclosure SaaS or a salary-threshold demo.
+Canonical promise:
 
-Canonical product wedge:
+**Prove you qualify for the work. Do not reveal why.**
 
-**Private work qualification with bargaining privacy.**
+Canonical flow:
 
-Signature behavior:
+`COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`
 
-`Employer policy request → holder consent → private composite proof → QUALIFIED receipt`
+## Source-validated V4
 
-## V4 implementation composed
+- employer-authenticated `registerWorkRequest` via `ownPublicKey()`;
+- one immutable policy per employer + job scope;
+- cancellation without policy replacement;
+- `verifyRegisteredWorkPolicy` reads registered criteria from ledger state;
+- composite private policy across income/rating/completed jobs;
+- no component-level public outcomes;
+- no public negative receipt on failure/refusal;
+- opportunity-scoped nullifier;
+- employer/job-scoped holder pseudonym;
+- Schnorr issuer attestation;
+- block-time request expiry;
+- future issuance rejection;
+- monotonic provider epoch across removal/re-registration;
+- independent indexed work-request and work-receipt confirmation;
+- operator UI for register → prove path;
+- lazy Midnight runtime loading;
+- dependency refresh to Vite 8.3.0 / Vitest 5.0.1;
+- remediation workflow: Compact PASS, npm audit 0, typecheck PASS, 20 tests PASS, build PASS.
 
-- `verifyWorkPolicy` Compact circuit;
-- fixed `SR-WORK-01/02/03` composite standards;
-- one public `WorkQualificationReceipt` with no component verdicts;
-- on-chain request-expiry enforcement;
-- on-chain future-issuance rejection;
-- scope-stable work-policy nullifier to stop same-scope challenge replay/probing;
-- live MidnightJS work-policy method + independent indexed work-receipt lookup;
-- local parity helpers and demo qualification generator;
-- expanded privacy/anti-probing tests;
-- current README rewrite;
-- Judge Review Guide, Claim Ledger, Work Qualification spec, competitive intelligence and Real TX runbook.
+## Performance state
 
-## Preserved invariants
+The V4 lazy-runtime build reduced judge-facing entry JS from roughly 1.08 MB to ~245 KB minified. Midnight runtime/WASM remains available through the live path rather than dominating initial app execution.
 
-- provider Schnorr attestation;
-- fixed standards rather than arbitrary thresholds;
-- employer/job scoped subject;
-- provider-epoch revocation;
-- pass-only publication;
-- demo/live evidence separation;
-- no secret material in public receipts/evidence.
+## Current open gate
 
-## Current gate
+`NETWORK_EVIDENCE_PENDING`
 
-Run V4 CI:
+Opeyemi must run `docs/REAL-TX-RUNBOOK.md` and capture:
 
-1. Compact 0.31.1 compile.
-2. Node 20 typecheck/tests/build.
-3. Node 22 typecheck/tests/build.
-4. Fix any compiler/runtime defects before claiming V4 source-ready.
-5. Keep dependency-audit risk explicit.
-6. After source gate, Opeyemi runs the canonical Lace `verifyWorkPolicy` scenario from `docs/REAL-TX-RUNBOOK.md`.
-7. Only a real tx + independently indexed receipt promotes the V4 live claim to `NETWORK_VERIFIED`.
+- V4 contract/network;
+- provider registration;
+- employer work-request id + tx/block;
+- indexed request confirmation;
+- holder qualification verification id + tx/block;
+- independently indexed work receipt.
 
-UI/UX V4 is intentionally not started yet.
+Do not call V4 Preprod/network validated before this evidence exists.
+
+## Known honest limits
+
+- authenticated job scope is not universal proof of unique real-world ATS requisition identity;
+- one provider currently signs the composite credential;
+- Commit-Before-Know proves immutable criteria, not legal fairness/non-discrimination;
+- broad Enterprise V3 RBAC/billing/webhook surfaces remain architecture/UX previews unless backed by production services.
+
+## Next gate after network evidence
+
+TRACE UI/UX V4 centered on the signature protocol, not generic SaaS breadth.

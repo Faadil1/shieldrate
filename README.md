@@ -15,19 +15,19 @@ Built for **Midnight Buildathon — Wave 1**.
 
 ## Signature primitive — Commit-Before-Know
 
-ShieldRate does more than hide the holder's data. The employer must commit the qualification standard **before** the holder proves anything.
+ShieldRate protects both sides of the decision boundary: the worker's evidence stays private, and the employer must fix the qualification rule **before** the worker proves anything.
 
 `Employer commits policy → Holder consents → Private qualification → QUALIFIED receipt`
 
 For one wallet-authenticated employer + job scope:
 
 - exactly one qualification policy can be registered;
-- the policy, challenge and expiry become immutable request state;
-- cancelling the request closes the opportunity instead of allowing a silent policy replacement;
+- policy, challenge and expiry become immutable public request state;
+- cancelling closes the opportunity instead of permitting a silent policy replacement;
 - a holder can publish at most one successful qualification receipt for that opportunity;
-- failed qualification writes no public negative receipt.
+- refusal or failure creates no holder-specific public negative record.
 
-The employer identity is derived inside Compact from `ownPublicKey()`. Proof-time callers cannot supply a fake employer scope.
+The employer identity is derived inside Compact from `ownPublicKey()`. A proof-time caller cannot inject an arbitrary employer identity.
 
 See [`docs/COMMIT-BEFORE-KNOW.md`](docs/COMMIT-BEFORE-KNOW.md).
 
@@ -51,7 +51,19 @@ Wave 1 policies are fixed in code:
 | `SR-WORK-02` | proven professional |
 | `SR-WORK-03` | elite track record |
 
-The exact numeric thresholds are protocol rules. What stays private is the holder's underlying data, margin above a threshold, and component-level outcome.
+The exact numeric thresholds are public protocol rules. What remains private is the holder's underlying data, margin above a threshold, and component-level outcome.
+
+## Why the request registry matters
+
+Many privacy systems protect credential values but still let a verifier adapt the questions it asks. ShieldRate treats **verifier behavior itself** as part of the privacy boundary.
+
+A work request is therefore a public, wallet-authenticated commitment to the standard before any candidate proof. That creates three properties at once:
+
+1. **bargaining privacy** — raw work data never becomes negotiating data;
+2. **criteria consistency** — the employer cannot move the goalposts for that registered opportunity;
+3. **failure privacy** — no candidate-specific rejection or refusal is written publicly.
+
+Public work requests can also be audited over time without publishing applicant records. This is verifier accountability without a candidate surveillance trail.
 
 ## Trust boundary
 
@@ -72,7 +84,7 @@ The exact numeric thresholds are protocol rules. What stays private is the holde
 6. **Opportunity-scoped anti-probing** — one successful qualification per holder + employer + job opportunity.
 7. **On-chain request expiry** — Compact checks the deadline against block time.
 8. **Credential temporal validity** — future issuance is rejected and validity must cover the request window.
-9. **Monotonic provider revocation** — provider removal increments and preserves its epoch, so re-registration cannot revive epoch-0 credentials.
+9. **Monotonic provider revocation** — provider removal increments and preserves its epoch, so re-registration cannot revive old epoch credentials.
 10. **Scoped identity** — holder pseudonyms are derived per employer + job.
 11. **Pass-only publication** — failed predicates abort before ledger insertion.
 12. **Independent receipt re-read** — transaction finalization alone is insufficient.
@@ -80,13 +92,14 @@ The exact numeric thresholds are protocol rules. What stays private is the holde
 
 ## Judge review
 
-Start with [`docs/JUDGE-REVIEW.md`](docs/JUDGE-REVIEW.md).
+Start with [`docs/JUDGE-REVIEW.md`](docs/JUDGE-REVIEW.md) and [`docs/DEMO-90S.md`](docs/DEMO-90S.md).
 
 Fast local verification:
 
 ```bash
 npm ci
 npm run verify:judge
+npm audit --audit-level=moderate
 ```
 
 Compact gate:
@@ -97,11 +110,15 @@ rm -rf .compact-build/shieldrate
 compact compile --compact-path contracts contracts/shieldrate.compact .compact-build/shieldrate
 ```
 
-CI runs Compact compilation plus Node 20 and Node 22 typecheck/tests/build. The Node 22 job also emits `npm audit` evidence; audit output is informational until the dependency-risk gate is explicitly resolved.
+The current toolchain uses Vite `8.3.0` and Vitest `5.0.1`. The dependency-remediation validation reported **0 npm audit vulnerabilities**, and CI now treats moderate-or-higher audit findings as a failing gate on Node 22.
+
+## Performance boundary
+
+The Midnight live runtime is dynamically imported only when live functionality is requested. The judge-facing entry bundle dropped from roughly **1.08 MB to ~245 KB minified** in the validated V4 build; the larger Midnight runtime remains in a separate lazy chunk. Midnight WASM assets are still packaged for the live path.
 
 ## Live operator path
 
-The live setup dossier now exposes the V4 sequence directly:
+The live setup dossier exposes the V4 sequence directly:
 
 1. deploy/join contract;
 2. register issuer;
@@ -110,8 +127,6 @@ The live setup dossier now exposes the V4 sequence directly:
 5. submit registered private qualification;
 6. require indexed work-receipt confirmation.
 
-The Midnight runtime is dynamically loaded only when live functionality is requested, so the judge-facing demo does not eagerly load the full Midnight runtime path on first interaction.
-
 ## Evidence discipline
 
 See [`docs/CLAIMS.md`](docs/CLAIMS.md). ShieldRate does **not** currently claim:
@@ -119,18 +134,19 @@ See [`docs/CLAIMS.md`](docs/CLAIMS.md). ShieldRate does **not** currently claim:
 - a completed canonical Lace / Preprod V4 request + qualification receipt;
 - production issuer governance;
 - production RBAC, billing or webhook infrastructure;
-- that the current dependency tree is vulnerability-free;
-- that a committed policy is legally fair or non-discriminatory. Commit-Before-Know proves criteria immutability, not legal validity.
+- that Commit-Before-Know proves a policy is legally fair or non-discriminatory;
+- that employer/job scope maps to a unique real-world requisition beyond the authenticated on-chain scope supplied by that employer.
 
 ## Product wedge
 
 ShieldRate is not a generic identity/compliance engine and not a salary-verification clone. Its Wave 1 wedge is **workforce / contractor qualification with bargaining privacy and verifier-side criteria discipline**.
 
-The employer gets a durable proof that a candidate satisfied a standard. The worker does not surrender the private data that can later be used in negotiation, and the employer cannot silently move the standard after the opportunity is opened.
+The employer gets a durable proof that a candidate satisfied a standard. The worker does not surrender the private data that can later be used in negotiation, and the employer cannot silently move the registered standard after the opportunity is opened.
 
 ## Documentation
 
 - [`docs/JUDGE-REVIEW.md`](docs/JUDGE-REVIEW.md)
+- [`docs/DEMO-90S.md`](docs/DEMO-90S.md)
 - [`docs/CLAIMS.md`](docs/CLAIMS.md)
 - [`docs/COMMIT-BEFORE-KNOW.md`](docs/COMMIT-BEFORE-KNOW.md)
 - [`docs/WORK-QUALIFICATION.md`](docs/WORK-QUALIFICATION.md)

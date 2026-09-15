@@ -1,43 +1,62 @@
 # ShieldRate — Judge Review Guide
 
-Status: `SOURCE_CANDIDATE / LIVE_RECEIPT_PENDING`
-
-This is the shortest path for evaluating ShieldRate without relying on presentation claims.
+Status: `V4_SOURCE_VERIFIED / NETWORK_EVIDENCE_PENDING`
 
 ## 1. Product claim in one sentence
 
-**ShieldRate proves that an issuer-attested worker satisfies a fixed employer qualification policy for one opportunity, while revealing neither the underlying work data nor any component-level result.**
+**ShieldRate lets an employer commit a qualification standard before seeing a candidate outcome, then lets an issuer-attested worker prove they satisfy that standard without revealing the private work data or leaving a public failure trail.**
 
-The flagship circuit is `verifyWorkPolicy` in `contracts/shieldrate.compact`.
+The signature sequence is:
 
-## 2. What is actually implemented
+`COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`
 
-### Source-verifiable now
+## 2. What is different here
 
-- Compact contract compiles on compiler 0.31.1.
-- Provider-signed private credentials are verified in-circuit with Schnorr.
-- Holder identity is scoped to employer + job.
-- Work policy requests bind employer, job, policy, challenge and expiry.
-- Work-policy nullifiers are stable per holder + employer + job + policy, preventing a verifier from bypassing repeat protection merely by changing the challenge.
-- Request expiry is enforced against Midnight block time.
-- Future-issued credentials are rejected against block time.
-- Provider epoch rotation/removal supports coarse credential revocation.
-- Failed qualification creates no public receipt.
-- A successful work-policy receipt contains policy metadata but no raw income/rating/jobs and no component-level verdict.
-- MidnightJS live adapter deploys/joins, calls proof circuits and re-reads the indexed ledger receipt before returning a verified result.
+ShieldRate treats privacy as a two-sided protocol problem:
 
-### Not yet promoted to canonical evidence
+- **holder privacy:** raw income, rating and completed-job history remain private;
+- **verifier accountability:** the employer wallet commits the policy before proof and cannot replace it under the same registered job scope;
+- **failure privacy:** refusal/failure creates no holder-specific public negative receipt;
+- **opportunity privacy budget:** a holder can publish at most one successful qualification receipt for that employer/job opportunity.
 
-The final interactive Lace run for the V4 work-policy path remains `PENDING` until a real transaction is executed and the resulting indexed receipt is captured.
+Among the reviewed public Wave 1 repositories, we found many strong credential, compliance, claim, eligibility and privacy products, but did not surface another submission centered on an employer-authenticated immutable pre-commit of hiring/contractor criteria before candidate proof. This is a reviewed-field observation, not a claim about every possible submission.
 
-## 3. Clean-checkout verification
+## 3. Source-verifiable now
+
+- Compact 0.31.1 compiles the V4 contract.
+- Employer identity is derived from `ownPublicKey()`.
+- `registerWorkRequest` fixes one policy per employer + job scope.
+- cancelling a request does not free the job key for a replacement standard.
+- `verifyRegisteredWorkPolicy` reads the already-registered policy rather than accepting proof-time thresholds.
+- provider-signed private credentials are verified in-circuit with Schnorr.
+- holder identity is scoped to employer + job.
+- work nullifier is opportunity-scoped rather than challenge/policy-scoped.
+- request expiry is checked against Midnight block time.
+- future-issued credentials are rejected against block time.
+- provider removal preserves and increments epoch history.
+- failed qualification writes no receipt.
+- successful work receipt contains no raw income/rating/jobs or component verdicts.
+- MidnightJS live adapter registers requests, submits proof transactions and re-reads indexed state.
+- operator UI exposes the V4 Commit → Prove sequence.
+- live runtime is code-split from the judge-facing entry bundle.
+- application tests currently cover 20 integrity/privacy cases.
+- dependency toolchain was refreshed to Vite 8.3.0 / Vitest 5.0.1 and the remediation validation reported 0 npm audit vulnerabilities.
+
+## 4. Still pending
+
+A canonical real Lace/Preprod evidence bundle for this exact V4 request-registry flow is still pending. Do not interpret source compilation or a successful build as network validation.
+
+## 5. Clean-checkout verification
 
 ```bash
 npm ci
-npm run verify:judge
+npm audit --audit-level=moderate
+npm run typecheck
+npm test
+npm run build
 ```
 
-Then compile Compact:
+Then:
 
 ```bash
 compact update 0.31.1
@@ -45,66 +64,43 @@ rm -rf .compact-build/shieldrate
 compact compile --compact-path contracts contracts/shieldrate.compact .compact-build/shieldrate
 ```
 
-Expected source gates:
+## 6. Read these files in order
 
-- TypeScript typecheck passes.
-- Vitest suite passes.
-- Production bundle builds.
-- Compact compiles `verifyClaim`, `verifyWorkPolicy`, provider governance and receipt-query circuits.
+1. `contracts/shieldrate.compact`
+2. `docs/COMMIT-BEFORE-KNOW.md`
+3. `tests/shieldrate.test.ts`
+4. `src/midnight/api.ts`
+5. `src/midnight/runtime.ts`
+6. `docs/CLAIMS.md`
+7. `docs/REAL-TX-RUNBOOK.md`
+8. `docs/DEMO-90S.md`
 
-## 4. Read these files in order
+## 7. The falsification checks
 
-1. `contracts/shieldrate.compact` — canonical privacy/integrity boundary.
-2. `tests/shieldrate.test.ts` — application-level invariants, including composite qualification and anti-probing semantics.
-3. `src/midnight/api.ts` — live transaction + indexed-receipt verification path.
-4. `src/security/integrity.ts` — fixed policy definitions and demo parity helpers.
-5. `docs/CLAIMS.md` — claim/evidence/status map.
-6. `docs/REAL-TX-RUNBOOK.md` — exact final network gate.
+A reviewer can try to break the thesis:
 
-## 5. Signature demo
+- register a second policy under the same employer/job scope → must fail;
+- cancel then try to replace the same job policy → must still fail;
+- use an expired work request → proof must fail;
+- use a future-issued or revoked-epoch credential → proof must fail;
+- prove a policy the private credential does not satisfy → no public qualification receipt;
+- successfully prove, then attempt another qualification for the same opportunity → nullifier guard must fail;
+- inspect `WorkQualificationReceipt` → no private component values or component-level verdicts.
 
-The judge-facing signature behavior should be one coherent action, not three attribute proofs:
+## 8. Non-claims
 
-`Employer policy request → holder consent → private composite proof → QUALIFIED receipt`
+ShieldRate does not currently claim:
 
-Example: `SR-WORK-02` requires a fixed combination of income, rating and completed-job history. The holder's exact values never become public. If any component fails, no negative receipt is inserted.
+- V4 network validation until the canonical Lace run is captured;
+- production real-world issuer governance;
+- that a committed employer policy is lawful, unbiased or non-discriminatory;
+- that on-chain `jobScope` prevents a malicious employer from describing the same real-world role under a distinct external requisition identifier;
+- production RBAC, billing or webhook infrastructure.
 
-The public receipt answers only:
+## 9. Winning bar before visual redesign
 
-> This issuer-attested holder satisfied SR-WORK-02 for this employer/job scope before the request expired.
-
-## 6. 90-second demo narrative
-
-**0–15s — Problem**  
-Hiring and procurement teams routinely ask contractors for far more evidence than they need. Salary/revenue history, platform rating and completed-job history become negotiating data.
-
-**15–35s — Request**  
-Employer selects one fixed qualification standard and one job scope. The request has a fresh challenge and expiry.
-
-**35–60s — Prove**  
-Holder consents. Compact verifies the provider signature, credential freshness, policy conditions, scope and replay rules privately.
-
-**60–75s — Receipt**  
-If qualified, ShieldRate writes one scoped receipt. It does not publish raw values or separate component results. If not qualified, no public negative receipt exists.
-
-**75–90s — Independent verification**  
-In live mode the UI does not trust a transaction id alone: it re-queries contract state for the expected verification id before saying verified.
-
-## 7. Non-claims
-
-Do not say any of the following until the corresponding evidence exists:
-
-- “V4 is validated on Midnight Preprod” — pending the canonical Lace transaction + indexed receipt.
-- “Production issuer network” — only the protocol/provider boundary is implemented.
-- “Production team/RBAC/billing/integrations” — current enterprise surfaces may show architecture previews but are not promoted as working backend services.
-- “Dependency security clean” — dependency audit remediation is a separate open gate.
-
-## 8. Winning bar for the next gate
-
-Before another visual redesign, ShieldRate should have:
-
-1. Compact + Node CI green on this branch.
-2. V4 composite proof source-validated.
-3. A real Lace transaction for `verifyWorkPolicy`.
-4. Captured contract address, tx id, block height and indexed receipt.
-5. Claim ledger updated from `LIVE_PENDING` to `NETWORK_VERIFIED` only after item 4.
+1. final branch CI green on Compact + Node 20/22 + npm audit gate;
+2. real employer work-request transaction captured;
+3. real holder qualification transaction captured;
+4. expected `workReceipts` entry independently found in indexed contract state;
+5. only then promote live claims and redesign the judge experience around `COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`.

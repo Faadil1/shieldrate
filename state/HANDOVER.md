@@ -1,55 +1,67 @@
 # ShieldRate — Handover
 
-Resume from `Faadil1/shieldrate` on branch `winning-intelligence-v4`.
+Resume from `Faadil1/shieldrate` on `winning-intelligence-v4`.
 
-Canonical state: `WINNING_INTELLIGENCE_V4 / BUILD_COMPOSED_CI_PENDING`.
-Upstream PR #1 and PR #2 are already merged into `opeblow/shieldrate:main`.
+Canonical state: `WINNING_INTELLIGENCE_V4 / SOURCE_VALIDATED_NETWORK_EVIDENCE_PENDING`.
 
 ## Product thesis
-
-ShieldRate is now centered on **private workforce / contractor qualification with bargaining privacy**, not generic selective disclosure and not salary verification alone.
-
-Canonical promise:
 
 **Prove you qualify for the work. Do not reveal why.**
 
 Signature flow:
 
-`Employer policy request → holder consent → private composite proof → QUALIFIED receipt`
+`COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`
 
-## New V4 primitive
+ShieldRate is now deliberately differentiated from generic selective disclosure and salary proof. The employer must commit the standard before holder proof, while failure/refusal leaves no holder-specific public negative record.
 
-`verifyWorkPolicy(...)` proves a fixed composite policy across private issuer-attested income, rating and completed-job facts.
+## Core V4 mechanisms
 
-Properties:
+- `registerWorkRequest` authenticates employer with `ownPublicKey()`;
+- one immutable standard per employer + job scope;
+- cancellation closes the request but does not free the job key;
+- `verifyRegisteredWorkPolicy` consumes the registered request;
+- opportunity-scoped holder nullifier;
+- provider-signed private credential with Schnorr verification;
+- composite policy with one positive receipt;
+- block-time expiry / future-issued credential rejection;
+- monotonic provider epoch revocation;
+- indexed request/receipt verification after tx finalization;
+- V4 operator UI;
+- lazy-loaded Midnight runtime;
+- refreshed Vite/Vitest toolchain with zero audit findings in remediation validation.
 
-- one public policy code;
-- no separate public component outcomes;
-- failure creates no public receipt;
-- employer/job scoped subject;
-- request hash binds employer/job/policy/challenge/expiry;
-- scope-stable policy nullifier blocks same-scope re-probing with a fresh challenge;
-- request expiry is enforced against block time;
-- credential issuance cannot be in the future;
-- credential validity must cover the request window;
-- provider signature and provider epoch remain mandatory.
+## Validation already completed
+
+Winning Intelligence V4 / Commit-Before-Know source gate has passed:
+
+- Compact 0.31.1 compile;
+- Node typecheck;
+- 20 tests;
+- production build;
+- npm audit after Vite 8.3.0 / Vitest 5.0.1 refresh: 0 findings.
+
+Run the final branch CI again after any state/docs cleanup before opening/merging the upstream PR.
 
 ## Immediate continuation
 
-1. Run/inspect branch CI.
-2. If Compact fails, fix the contract rather than weakening V4 semantics.
-3. If Node jobs fail, preserve API/types/test invariants while fixing generated-binding mismatches.
-4. After CI is green, update `state/WINNING-INTELLIGENCE-V4.md` and `state/CURRENT.md` to source-validated.
-5. Do NOT redesign the UI yet.
-6. Give Opeyemi `docs/REAL-TX-RUNBOOK.md` for the canonical Lace run.
-7. Capture public tx/block/contract/verificationId evidence only after a real successful run.
-8. Promote `docs/CLAIMS.md` from `LIVE_PENDING` to `NETWORK_VERIFIED` only after independent receipt lookup succeeds.
-9. Then perform the next TRACE UI/UX pass around the single signature behavior, not generic SaaS breadth.
+1. Ensure final CI green on current branch head.
+2. Keep `docs/CLAIMS.md` at `LIVE_PENDING` for the network evidence claim.
+3. Give Opeyemi `docs/REAL-TX-RUNBOOK.md`.
+4. Opeyemi performs a real Lace/Preprod V4 run using a fresh job scope.
+5. Capture request tx/block + indexed request.
+6. Capture qualification tx/block + indexed work receipt.
+7. Add `evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-<date>.md` only after actual success.
+8. Promote only the supported network claim.
+9. Then reopen TRACE UI/UX around `COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`.
 
-## Competitive field reminders
+## Competitive reminder
 
-Strong current Wave 1 references include ZK-Sentinel, VINPassport, Candor, Umbra, BACCHIRI! and ClearScope. The competitive implications and collision decisions are recorded in `docs/COMPETITIVE-INTELLIGENCE-WAVE1.md`.
+Reviewed public Wave 1 projects already cover private eligibility, compensation, compliance, claims and generic selective disclosure. Commit-Before-Know, failure privacy and verifier-policy audit without rejected-worker surveillance are ShieldRate's current differentiated territory.
+
+## Future white space
+
+Federated/multi-source work evidence is the strongest next protocol expansion after V4 live evidence is locked. Do not claim it as shipped in Wave 1 unless it is actually implemented, compiled, tested and demonstrated.
 
 ## Truth boundary
 
-Never claim V4 is Preprod/network-validated from CI, source compilation, a transaction function, or screenshots alone. The final live gate is still a real Lace transaction plus independently indexed `workReceipts` lookup.
+Never call V4 network-validated from source/CI alone. Never claim committed criteria are automatically lawful or fair. Never expose holder/issuer secrets in evidence.
