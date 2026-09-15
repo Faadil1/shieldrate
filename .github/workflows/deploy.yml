@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, midnight-live-integration-v1, ui-ux-judge-experience-v1, ui-ux-trace-max-v2]
+    branches: [main, midnight-live-integration-v1, ui-ux-judge-experience-v1, ui-ux-trace-max-v2, ui-ux-enterprise-saas-v3]
   workflow_dispatch:
 
 permissions:

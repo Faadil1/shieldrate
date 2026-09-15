@@ -14,6 +14,8 @@ import { MobileView } from "./components/MobileView";
 import { ProofModal } from "./components/ProofModal";
 import { LiveSetupPanel } from "./components/LiveSetupPanel";
 import { BrandMark } from "./components/BrandMark";
+import { EnterpriseOverview } from "./components/EnterpriseOverview";
+import { EnterpriseModule } from "./components/EnterpriseModule";
 
 export default function App() {
   const { wallet, connect, disconnect } = useWallet();
@@ -44,6 +46,7 @@ export default function App() {
 
   const stats = computeStats([...generatedReceipt, ...SHIELD_VERIFICATIONS]);
   const handleGenerate = (req: ProofRequest) => void generateProof(req, wallet.address ?? "demo-holder");
+  const openRequest = () => setProofModalOpen(true);
 
   return (
     <div className="app-shell security-field">
@@ -64,59 +67,87 @@ export default function App() {
       )}
 
       {view === "dashboard" && (
-        <div className="min-h-screen lg:flex">
+        <div className="enterprise-shell min-h-screen lg:flex">
           <Sidebar
             active={section}
             onNavigate={(key) => {
               setSection(key);
-              if (key === "post") setProofModalOpen(true);
+              if (key === "post") openRequest();
             }}
           />
 
-          <main className="min-w-0 flex-1 px-3 py-4 md:px-6 md:py-6 xl:px-9 xl:py-8">
-            <div className="document-frame mx-auto max-w-[1320px] p-4 md:p-6 xl:p-8">
+          <main className="min-w-0 flex-1">
+            <WorkspaceBar live={live} walletConnected={wallet.connected} />
+
+            <div className="workspace-canvas px-3 py-4 md:px-6 md:py-6 xl:px-8 xl:py-7">
               <div className="mb-5 flex items-center justify-between border-b border-[var(--ink)] pb-4 lg:hidden">
                 <button onClick={() => setView("landing")} className="flex items-center gap-2 text-left">
                   <BrandMark compact />
                   <span className="trust-wordmark text-[16px] text-[var(--ink)]">SHIELDRATE</span>
                 </button>
-                <button className="btn-primary" onClick={() => setProofModalOpen(true)}>New proof</button>
+                <button className="btn-primary" onClick={openRequest}>New request</button>
               </div>
 
-              <Header wallet={wallet} pendingCount={stats.pending} onDisconnect={disconnect} onGenerateProof={() => setProofModalOpen(true)} />
+              <Header
+                wallet={wallet}
+                pendingCount={stats.pending}
+                section={section}
+                onDisconnect={disconnect}
+                onGenerateProof={openRequest}
+              />
 
               {section === "settings" && live ? (
                 <LiveSetupPanel />
               ) : section === "settings" ? (
-                <DemoRuntimePanel onGenerate={() => setProofModalOpen(true)} />
-              ) : (
+                <DemoRuntimePanel onGenerate={openRequest} />
+              ) : section === "dashboard" ? (
                 <>
                   <TrustBoundary live={live} walletConnected={wallet.connected} network={wallet.network} />
                   <KPICards activeVerifications={stats.active} reviewTime={live ? "network" : "local"} failedProofs={stats.failed} />
+                  <EnterpriseOverview
+                    verifications={stats.listed}
+                    live={live}
+                    walletConnected={wallet.connected}
+                    onNewRequest={openRequest}
+                    onOpenRuntime={() => setSection("settings")}
+                  />
 
                   <div className="mb-7 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_330px]">
                     <PrivacyBoundary />
                     <IntegrityRail live={live} />
                   </div>
 
-                  <VerificationTable verifications={stats.listed} onEmptyAction={() => setProofModalOpen(true)} />
-
-                  <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ink)] pt-5">
-                    <div className="evidence-mono text-[8px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">SR / VERIFICATION BUREAU / EVIDENCE FIRST / TRACE MAX V2</div>
-                    <div className="flex flex-wrap gap-2">
-                      <button className="btn-secondary" onClick={() => setView("landing")}>Landing</button>
-                      <button className="btn-secondary" onClick={() => setView("freelancer")}>Holder dossier</button>
-                      <button className="btn-secondary" onClick={() => setView("mobile")}>Mobile pass</button>
-                    </div>
-                  </div>
+                  <VerificationTable verifications={stats.listed} onEmptyAction={openRequest} />
                 </>
+              ) : section === "verifications" ? (
+                <>
+                  <TrustBoundary live={live} walletConnected={wallet.connected} network={wallet.network} />
+                  <VerificationTable verifications={stats.listed} onEmptyAction={openRequest} />
+                </>
+              ) : (
+                <EnterpriseModule
+                  section={section}
+                  verifications={stats.listed}
+                  live={live}
+                  onNewRequest={openRequest}
+                  onOpenRuntime={() => setSection("settings")}
+                />
               )}
+
+              <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ink)] pt-5">
+                <div className="evidence-mono text-[8px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">SR / ENTERPRISE VERIFICATION OPERATIONS / TRACE V3</div>
+                <div className="flex flex-wrap gap-2">
+                  <button className="btn-secondary" onClick={() => setView("landing")}>Landing</button>
+                  <button className="btn-secondary" onClick={() => setView("freelancer")}>Holder dossier</button>
+                  <button className="btn-secondary" onClick={() => setView("mobile")}>Mobile pass</button>
+                </div>
+              </div>
             </div>
           </main>
         </div>
       )}
 
-      {view === "freelancer" && <FreelancerView wallet={wallet} onGenerateProof={() => setProofModalOpen(true)} onBack={() => setView("dashboard")} />}
+      {view === "freelancer" && <FreelancerView wallet={wallet} onGenerateProof={openRequest} onBack={() => setView("dashboard")} />}
       {view === "mobile" && <MobileView onBack={() => setView("landing")} />}
 
       {proofModalOpen && (
@@ -126,13 +157,29 @@ export default function App() {
   );
 }
 
+function WorkspaceBar({ live, walletConnected }: { live: boolean; walletConnected: boolean }) {
+  return (
+    <div className="workspace-bar">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="utility-label">Employer operations</span>
+        <span className="hidden h-3 w-px bg-[var(--rule-strong)] sm:block" />
+        <span className="hidden truncate text-[9px] font-semibold text-[var(--muted)] sm:block">Receipts · Subjects · Policies · Providers · Runtime</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="preview-pill">Enterprise V3</span>
+        <span className={`mode-badge ${live ? "mode-live" : "mode-demo"}`}>{live ? (walletConnected ? "Live connected" : "Live / wallet required") : "Demo explicit"}</span>
+      </div>
+    </div>
+  );
+}
+
 function TrustBoundary({ live, walletConnected, network }: { live: boolean; walletConnected: boolean; network: string | null }) {
   return (
-    <section className={`mb-6 grid border-y border-[var(--ink)] md:grid-cols-[165px_1fr] ${live ? "bg-[var(--verify-bg)]" : "bg-[var(--amber-bg)]"}`}>
-      <div className="flex items-center border-b border-[rgba(16,44,49,.20)] px-5 py-4 md:border-b-0 md:border-r">
+    <section className={`mb-5 grid border-y border-[var(--ink)] md:grid-cols-[165px_1fr] ${live ? "bg-[var(--verify-bg)]" : "bg-[var(--amber-bg)]"}`}>
+      <div className="flex items-center border-b border-[rgba(16,44,49,.20)] px-5 py-3 md:border-b-0 md:border-r">
         <span className={`mode-badge ${live ? "mode-live" : "mode-demo"}`}>{live ? "Live boundary" : "Demo boundary"}</span>
       </div>
-      <div className="grid gap-2 px-5 py-4 md:grid-cols-[1fr_auto] md:items-center">
+      <div className="grid gap-2 px-5 py-3 md:grid-cols-[1fr_auto] md:items-center">
         <p className="text-[10px] leading-5 text-[var(--ink-soft)]">
           {live
             ? `MIDNIGHT_LIVE · ${walletConnected ? `${network ?? "wallet"} connected` : "connect Lace before proving"}. Verified means finalized transaction + indexed receipt lookup.`
@@ -170,10 +217,7 @@ function BoundaryCell({ tone, code, label, value, note }: { tone: "requested" | 
   const toneClass = tone === "requested" ? "privacy-requested" : tone === "proven" ? "privacy-proven" : "privacy-hidden";
   return (
     <div className={`border p-4 ${toneClass}`}>
-      <div className="flex items-center justify-between">
-        <span className="evidence-mono text-[8px] font-black">{code}</span>
-        <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      </div>
+      <div className="flex items-center justify-between"><span className="evidence-mono text-[8px] font-black">{code}</span><span className="h-1.5 w-1.5 rounded-full bg-current" /></div>
       <div className="micro-label mt-6 !text-current">{label}</div>
       <div className="mt-2 text-[14px] font-black">{value}</div>
       <div className="mt-1 text-[9px] opacity-70">{note}</div>
@@ -184,12 +228,12 @@ function BoundaryCell({ tone, code, label, value, note }: { tone: "requested" | 
 function IntegrityRail({ live }: { live: boolean }) {
   const steps = ["Issuer attested", "Context scoped", "Replay protected", "Pass-only publication", live ? "Indexed receipt required" : "No fake network state"];
   return (
-    <aside className="document-frame p-5 md:p-6">
+    <aside className="module-surface p-5 md:p-6">
       <div className="micro-label">Integrity sequence</div>
       <h3 className="display-serif mt-2 text-[25px] leading-none text-[var(--ink)]">Every public receipt crosses five gates.</h3>
       <div className="status-rail mt-6 space-y-0">
         {steps.map((step, index) => (
-          <div key={step} className="grid grid-cols-[16px_32px_1fr] items-center gap-3 py-3">
+          <div key={step} className="grid grid-cols-[16px_32px_1fr] items-center gap-3 border-b border-[var(--rule)] py-3 last:border-b-0">
             <span className="status-dot" />
             <span className="evidence-mono text-[8px] font-black text-[var(--verify)]">{String(index + 1).padStart(2, "0")}</span>
             <span className="text-[10px] font-bold text-[var(--ink-soft)]">{step}</span>
@@ -202,7 +246,7 @@ function IntegrityRail({ live }: { live: boolean }) {
 
 function DemoRuntimePanel({ onGenerate }: { onGenerate: () => void }) {
   return (
-    <section className="proof-instrument-v2 max-w-[880px] p-6 md:p-8">
+    <section className="proof-instrument-v2 max-w-[920px] p-6 md:p-8">
       <div className="relative z-10">
         <span className="mode-badge mode-demo">Demo attested</span>
         <h2 className="display-serif mt-5 text-[39px] leading-[.96] text-[var(--ink)]">Runtime activation is deliberately closed in demo mode.</h2>
