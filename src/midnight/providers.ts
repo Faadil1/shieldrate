@@ -40,7 +40,9 @@ const getFirstCompatibleWallet = (): InitialAPI | undefined => {
   );
 };
 
-export const connectToLace = async (networkId = import.meta.env.VITE_MIDNIGHT_NETWORK_ID || DEFAULT_NETWORK): Promise<ConnectedAPI> =>
+export const connectToWallet = async (
+  networkId = import.meta.env.VITE_MIDNIGHT_NETWORK_ID || DEFAULT_NETWORK,
+): Promise<ConnectedAPI> =>
   firstValueFrom(
     interval(100).pipe(
       map(() => getFirstCompatibleWallet()),
@@ -53,15 +55,24 @@ export const connectToLace = async (networkId = import.meta.env.VITE_MIDNIGHT_NE
     ),
   );
 
-export const initializeShieldRateProviders = async (): Promise<{
-  providers: ShieldRateProviders;
-  wallet: MidnightWalletSession;
+export interface MidnightWalletConnection {
   connectedAPI: ConnectedAPI;
-}> => {
+  wallet: MidnightWalletSession;
+  config: Awaited<ReturnType<ConnectedAPI["getConfiguration"]>>;
+  addresses: Awaited<ReturnType<ConnectedAPI["getShieldedAddresses"]>>;
+}
+
+/**
+ * Connect and validate the wallet only. Proof-provider initialization is kept out
+ * of this path so a wallet can visibly reach CONNECTED before a heavy prover is
+ * requested. This matters for wallets such as 1AM that delegate proving to a
+ * hosted service and may initialize that service lazily.
+ */
+export const connectMidnightWallet = async (): Promise<MidnightWalletConnection> => {
   const requestedNetwork = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID || DEFAULT_NETWORK) as NetworkId;
   setNetworkId(requestedNetwork);
 
-  const connectedAPI = await connectToLace(requestedNetwork);
+  const connectedAPI = await connectToWallet(requestedNetwork);
   const status = await connectedAPI.getConnectionStatus();
   if (status.status !== "connected") throw new Error("Midnight wallet connection did not reach connected state.");
   if (status.networkId !== requestedNetwork) {
@@ -77,12 +88,35 @@ export const initializeShieldRateProviders = async (): Promise<{
     throw new Error("Midnight wallet did not provide shielded public keys.");
   }
 
+  return {
+    connectedAPI,
+    config,
+    addresses,
+    wallet: {
+      networkId: status.networkId,
+      shieldedAddress: addresses.shieldedAddress ?? null,
+      shieldedCoinPublicKey: addresses.shieldedCoinPublicKey,
+      shieldedEncryptionPublicKey: addresses.shieldedEncryptionPublicKey,
+    },
+  };
+};
+
+export const initializeShieldRateProviders = async (
+  existingConnection?: MidnightWalletConnection,
+): Promise<{
+  providers: ShieldRateProviders;
+  wallet: MidnightWalletSession;
+  connectedAPI: ConnectedAPI;
+}> => {
+  const connection = existingConnection ?? await connectMidnightWallet();
+  const { connectedAPI, config, addresses, wallet } = connection;
+
   const privateStateProvider = inMemoryPrivateStateProvider<ShieldRatePrivateStateId, ShieldRatePrivateState>();
   const zkConfigProvider = new FetchZkConfigProvider<ShieldRateCircuitKeys>(window.location.origin, fetch.bind(window));
 
   // Connector API v4 lets wallets such as 1AM expose a delegated proving provider.
-  // Prefer it because it supports wallet-native / sponsored proving without local DUST.
-  // Fall back to the legacy HTTP prover URI for Lace/local proof-server setups.
+  // Initialize it only when an actual contract operation needs providers; wallet
+  // connection itself stays lightweight and diagnosable.
   const proofProvider = typeof connectedAPI.getProvingProvider === "function"
     ? createProofProvider(await connectedAPI.getProvingProvider(zkConfigProvider))
     : config.proverServerUri
@@ -110,16 +144,9 @@ export const initializeShieldRateProviders = async (): Promise<{
     },
   };
 
-  return {
-    providers,
-    connectedAPI,
-    wallet: {
-      networkId: status.networkId,
-      shieldedAddress: addresses.shieldedAddress ?? null,
-      shieldedCoinPublicKey: addresses.shieldedCoinPublicKey,
-      shieldedEncryptionPublicKey: addresses.shieldedEncryptionPublicKey,
-    },
-  };
+  return { providers, connectedAPI, wallet };
 };
 
+// Backwards-compatible export for older internal imports/documentation.
+export const connectToLace = connectToWallet;
 export { shieldRatePrivateStateKey };
