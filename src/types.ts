@@ -33,7 +33,7 @@ export interface WalletState {
   connected: boolean;
   address: string | null;
   displayAddress: string;
-  network: "preprod" | "devnet" | "none";
+  network: "preprod" | "preview" | "devnet" | "none";
 }
 
 export type View =
@@ -80,9 +80,10 @@ export interface ProofReceipt {
   requestExpiresAt: string;
   credentialExpiresAt: string;
   mode: ProofExecutionMode;
-  network: "not-submitted" | "preprod";
+  network: "not-submitted" | "preprod" | "preview";
   ledgerStatus: LedgerStatus;
   txHash?: string;
+  blockHeight?: number;
   contractAddress?: string;
 }
 

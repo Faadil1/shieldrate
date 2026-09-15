@@ -3,6 +3,7 @@ import type { ProofRequest, Verification, View } from "./types";
 import { useContract } from "./hooks/useContract";
 import { useWallet } from "./hooks/useWallet";
 import { SHIELD_VERIFICATIONS, computeStats } from "./data";
+import { executionMode } from "./security/integrity";
 import { Landing } from "./components/Landing";
 import { Sidebar, type SectionKey } from "./components/Sidebar";
 import { Header } from "./components/Header";
@@ -15,6 +16,7 @@ import { ProofModal } from "./components/ProofModal";
 export default function App() {
   const { wallet, connect, disconnect } = useWallet();
   const { busy, lastResult, generateProof } = useContract();
+  const live = executionMode() === "midnight-live";
 
   const [view, setView] = useState<View>("landing");
   const [section, setSection] = useState<SectionKey>("dashboard");
@@ -43,6 +45,24 @@ export default function App() {
   // Only successful proofs become shareable rows. Failed predicates remain local.
   const stats = computeStats([...generatedReceipt, ...SHIELD_VERIFICATIONS]);
 
+  const enterDashboard = () => {
+    setView("dashboard");
+    setSection("dashboard");
+  };
+
+  const connectAndEnter = () => {
+    if (wallet.connected) {
+      enterDashboard();
+      return;
+    }
+    void connect()
+      .then(() => enterDashboard())
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : "Wallet connection failed.";
+        window.alert(message);
+      });
+  };
+
   const handleGenerate = (req: ProofRequest) => {
     void generateProof(req, wallet.address ?? "demo-holder");
   };
@@ -52,15 +72,8 @@ export default function App() {
       {view === "landing" && (
         <Landing
           wallet={wallet}
-          onConnect={() => {
-            if (!wallet.connected) void connect();
-            setView("dashboard");
-            setSection("dashboard");
-          }}
-          onEnter={() => {
-            setView("dashboard");
-            setSection("dashboard");
-          }}
+          onConnect={connectAndEnter}
+          onEnter={enterDashboard}
           onMobile={() => setView("mobile")}
         />
       )}
@@ -81,10 +94,16 @@ export default function App() {
               onDisconnect={disconnect}
               onGenerateProof={() => setProofModalOpen(true)}
             />
-            <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-3 text-xs text-amber-200/80">
-              Proof Integrity v1 · DEMO_ATTESTED mode. No transaction, block confirmation or Midnight network state is simulated.
+            <div className={`mb-5 rounded-xl border px-5 py-3 text-xs ${live ? "border-rate-500/20 bg-rate-500/5 text-rate-200/80" : "border-amber-500/20 bg-amber-500/5 text-amber-200/80"}`}>
+              {live
+                ? "MIDNIGHT_LIVE · Lace + issuer attestation + ZK proving + finalized network receipts. A receipt is shown only after a successful finalized transaction."
+                : "Proof Integrity v1 · DEMO_ATTESTED mode. No transaction, block confirmation or Midnight network state is simulated."}
             </div>
-            <KPICards activeVerifications={stats.active} reviewTime="local" failedProofs={stats.failed} />
+            <KPICards
+              activeVerifications={stats.active}
+              reviewTime={live ? "network finalization" : "local"}
+              failedProofs={stats.failed}
+            />
             <VerificationTable verifications={stats.listed} onEmptyAction={() => setProofModalOpen(true)} />
             <div className="mt-8 flex gap-3">
               <button className="btn-secondary" onClick={() => setView("landing")}>← Landing</button>

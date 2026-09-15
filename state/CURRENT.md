@@ -1,41 +1,46 @@
 # ShieldRate — Canonical Current State
 
-Date: 2026-09-14
-Workstream: `PROOF_INTEGRITY_V1`
+Date: 2026-09-15
+Workstream: `MIDNIGHT_LIVE_INTEGRATION`
 Repository: `Faadil1/shieldrate`
-Branch: `main`
-Status: `PROOF_INTEGRITY_V1_MERGED`
+Branch: `midnight-live-integration`
+Status: `CI_VALIDATION_PENDING`
 
-## Product state
+## Locked baseline
 
-Proof Integrity v1 is merged into `main` via squash commit `7910cc34cab21e8fec88a746f7e0285028f35b0d`. The original ShieldRate prototype's simulated wallet/proof/transaction claims have been replaced by an explicit `DEMO_ATTESTED` trust boundary plus a fail-closed `MIDNIGHT_LIVE` mode.
+`PROOF_INTEGRITY_V1` is merged into `main` and validated:
 
-## Implemented
+- Compact compiler 0.31.1: PASS;
+- web typecheck/tests/production build: PASS;
+- GitHub Pages build + deploy: PASS after Pages was enabled;
+- issuer authenticity, fixed policy bands, scoped subject, request binding, nullifier anti-replay, provider-epoch revocation and pass-only publication remain mandatory invariants.
 
-- issuer-attested demo registry + Compact Schnorr provider attestation model;
-- fixed policy bands to reduce threshold probing;
-- employer/job-scoped pseudonyms;
-- challenge-bound request hashes;
-- anti-replay nullifiers;
-- verification-ID receipts instead of persistent holder keys;
-- credential freshness + provider-epoch revocation;
-- pass-only publication for successful predicates;
-- no stable credential identifier in shared receipts;
-- fail-closed `MIDNIGHT_LIVE` mode;
-- UI removal of fake `preprod · confirmed`, fake live badge, fake usage stats and fake transaction language;
-- authenticated Compact release fetches through `GITHUB_TOKEN`;
-- real Compact compiler gate targeting toolchain 0.31.1.
+## Current live-integration scope
 
-## Validation
+This branch replaces the former live-mode swap points with the current Midnight browser stack while keeping demo mode intact:
 
-Final PR CI run `34924939844` passed all three jobs:
+- Midnight DApp Connector API 4.0.1 / Lace discovery and connection;
+- MidnightJS 4.1.1 providers for wallet balancing, proving, indexer reads and transaction submission;
+- CompactJS 2.5.1 compiled-contract wrapper;
+- generated Compact bindings + browser `keys/` and `zkir/` assets;
+- holder/admin private state with no secrets in Vite environment variables;
+- external issuer-attestation client; issuer signing key stays server-side;
+- live `verifyClaim` transaction path returning finalized tx hash, block height, contract address and verification id;
+- indexer-backed receipt verification;
+- UI separation between `DEMO_ATTESTED` and `MIDNIGHT_LIVE`.
 
-- Verify (Node 20): PASS — install, typecheck, tests, production build;
-- Verify (Node 22): PASS — install, typecheck, tests, production build;
-- Compile Compact contract: PASS — Compact 0.31.1 successfully compiled `contracts/shieldrate.compact`.
+## Trust boundary
 
-During validation, two real Compact issues were found and fixed: the admin hash domain byte length (`Bytes<23>`) and explicit `Uint<64>` constraining of provider epoch increments. A transient unauthenticated GitHub API rate-limit in `compact update` was also removed by passing `GITHUB_TOKEN` to the Compact devtools job.
+`MIDNIGHT_LIVE` remains opt-in. It requires all of the following before it may be presented as live:
+
+1. a deployed ShieldRate contract address;
+2. a reachable issuer-attestation service;
+3. a compatible Lace wallet on the configured Midnight network;
+4. a provider registered in the deployed contract;
+5. a successful finalized `verifyClaim` transaction.
+
+Until those gates are satisfied, the public Pages build remains `DEMO_ATTESTED` by default.
 
 ## Current gate
 
-`PROOF_INTEGRITY_V1` is complete and merged. The next gate is `MIDNIGHT_LIVE_INTEGRATION`: deploy the compiled contract, wire Lace/MidnightJS + generated contract bindings + provider/indexer/proof infrastructure, execute a real verification transaction, and expose only independently verifiable network receipts. Do not enable `VITE_SHIELDRATE_MODE=midnight-live` before that evidence exists.
+Open a PR from `midnight-live-integration` and let GitHub Actions validate the real current package/API surface. Fix generated-binding, MidnightJS, Vite/WASM, Compact or TypeScript deltas from actual CI evidence. Do not merge until contract compile, typecheck, tests and production build are green.
