@@ -12,7 +12,7 @@ import {
   Transaction,
   type TransactionId,
 } from "@midnight-ntwrk/midnight-js-protocol/ledger";
-import type { UnboundTransaction } from "@midnight-ntwrk/midnight-js-types";
+import { createProofProvider, type UnboundTransaction } from "@midnight-ntwrk/midnight-js-types";
 import { catchError, concatMap, filter, firstValueFrom, interval, map, take, throwError, timeout } from "rxjs";
 import semver from "semver";
 import { inMemoryPrivateStateProvider } from "./privateStateProvider";
@@ -46,10 +46,10 @@ export const connectToLace = async (networkId = import.meta.env.VITE_MIDNIGHT_NE
       map(() => getFirstCompatibleWallet()),
       filter((api): api is InitialAPI => !!api),
       take(1),
-      timeout({ first: 5_000, with: () => throwError(() => new Error("Could not find a compatible Midnight Lace wallet (Connector API 4.x).")) }),
+      timeout({ first: 5_000, with: () => throwError(() => new Error("Could not find a compatible Midnight wallet (Connector API 4.x).")) }),
       concatMap((api) => api.connect(networkId)),
-      timeout({ first: 10_000, with: () => throwError(() => new Error("Midnight Lace did not respond to the connection request.")) }),
-      catchError((error) => throwError(() => error instanceof Error ? error : new Error("Midnight Lace authorization failed."))),
+      timeout({ first: 10_000, with: () => throwError(() => new Error("Midnight wallet did not respond to the connection request.")) }),
+      catchError((error) => throwError(() => error instanceof Error ? error : new Error("Midnight wallet authorization failed."))),
     ),
   );
 
@@ -63,28 +63,36 @@ export const initializeShieldRateProviders = async (): Promise<{
 
   const connectedAPI = await connectToLace(requestedNetwork);
   const status = await connectedAPI.getConnectionStatus();
-  if (status.status !== "connected") throw new Error("Midnight Lace connection did not reach connected state.");
+  if (status.status !== "connected") throw new Error("Midnight wallet connection did not reach connected state.");
   if (status.networkId !== requestedNetwork) {
     throw new Error(`Midnight network mismatch: requested ${requestedNetwork}, wallet connected to ${status.networkId}.`);
   }
 
   setNetworkId(status.networkId as NetworkId);
   const config = await connectedAPI.getConfiguration();
-  if (!config.proverServerUri) throw new Error("Lace did not provide a proof server URI.");
-  if (!config.indexerUri || !config.indexerWsUri) throw new Error("Lace did not provide complete indexer endpoints.");
+  if (!config.indexerUri || !config.indexerWsUri) throw new Error("Midnight wallet did not provide complete indexer endpoints.");
 
   const addresses = await connectedAPI.getShieldedAddresses();
   if (!addresses.shieldedCoinPublicKey || !addresses.shieldedEncryptionPublicKey) {
-    throw new Error("Lace did not provide shielded public keys.");
+    throw new Error("Midnight wallet did not provide shielded public keys.");
   }
 
   const privateStateProvider = inMemoryPrivateStateProvider<ShieldRatePrivateStateId, ShieldRatePrivateState>();
   const zkConfigProvider = new FetchZkConfigProvider<ShieldRateCircuitKeys>(window.location.origin, fetch.bind(window));
 
+  // Connector API v4 lets wallets such as 1AM expose a delegated proving provider.
+  // Prefer it because it supports wallet-native / sponsored proving without local DUST.
+  // Fall back to the legacy HTTP prover URI for Lace/local proof-server setups.
+  const proofProvider = typeof connectedAPI.getProvingProvider === "function"
+    ? createProofProvider(await connectedAPI.getProvingProvider(zkConfigProvider))
+    : config.proverServerUri
+      ? httpClientProofProvider(config.proverServerUri, zkConfigProvider)
+      : (() => { throw new Error("No compatible Midnight proof provider is available from the connected wallet."); })();
+
   const providers: ShieldRateProviders = {
     privateStateProvider,
     zkConfigProvider,
-    proofProvider: httpClientProofProvider(config.proverServerUri, zkConfigProvider),
+    proofProvider,
     publicDataProvider: indexerPublicDataProvider(config.indexerUri, config.indexerWsUri),
     walletProvider: {
       getCoinPublicKey: () => addresses.shieldedCoinPublicKey,
