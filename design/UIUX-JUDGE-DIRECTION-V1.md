@@ -1,6 +1,6 @@
 # ShieldRate — UI/UX & Judge Experience v1
 
-Status: `BUILD_VALIDATED_PREVIEW_ENV_GATE`
+Status: `PREVIEW_DEPLOYED_VISUAL_REVIEW_PENDING`
 Branch: `ui-ux-judge-experience-v1`
 Base: `midnight-live-integration-v1`
 
@@ -19,8 +19,9 @@ Base: `midnight-live-integration-v1`
 - Node 20 typecheck/tests/build: PASS
 - Node 22 typecheck/tests/build: PASS
 - GitHub Pages candidate build: PASS
-- GitHub Pages deploy: BLOCKED ONLY by `github-pages` environment branch allow-list for `ui-ux-judge-experience-v1`
-- Visual acceptance review: PENDING PREVIEW
+- GitHub Pages deploy: PASS
+- Public preview: `https://faadil1.github.io/shieldrate/`
+- Visual acceptance review: PENDING
 - Merge: CLOSED until visual acceptance
 
 ## Design thesis
