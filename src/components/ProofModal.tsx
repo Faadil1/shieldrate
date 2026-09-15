@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ProofRequest, ProofResult, ProofType } from "../types";
-import { CLAIM_POLICIES, DEMO_EMPLOYER_ID, DEMO_JOB_ID } from "../security/integrity";
+import { CLAIM_POLICIES, DEMO_EMPLOYER_ID, DEMO_JOB_ID, executionMode } from "../security/integrity";
 import { formatThreshold } from "../utils/contractHelpers";
 
 type Stage = "select" | "generating" | "result";
@@ -23,6 +23,7 @@ export function ProofModal({ walletConnected, busy, result, onGenerate, onClose 
   const [type, setType] = useState<ProofType>("income");
   const [threshold, setThreshold] = useState<number>(CLAIM_POLICIES.income[1]);
   const [stage, setStage] = useState<Stage>("select");
+  const live = executionMode() === "midnight-live";
 
   const current = TYPES.find((item) => item.key === type)!;
   const options = useMemo(() => CLAIM_POLICIES[type], [type]);
@@ -42,10 +43,6 @@ export function ProofModal({ walletConnected, busy, result, onGenerate, onClose 
     });
   };
 
-  const reset = () => {
-    setStage("select");
-  };
-
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-night-900 border border-night-700 rounded-2xl w-full max-w-[620px] overflow-hidden">
@@ -53,8 +50,8 @@ export function ProofModal({ walletConnected, busy, result, onGenerate, onClose 
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold text-white">Generate Private Proof</h2>
-              <span className="text-[10px] uppercase tracking-wider rounded px-2 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                Demo attested
+              <span className={`text-[10px] uppercase tracking-wider rounded px-2 py-1 border ${live ? "bg-rate-500/10 text-rate-400 border-rate-500/20" : "bg-amber-500/10 text-amber-300 border-amber-500/20"}`}>
+                {live ? "Midnight live" : "Demo attested"}
               </span>
             </div>
             <p className="text-xs text-mist-600 mt-1">
@@ -108,7 +105,7 @@ export function ProofModal({ walletConnected, busy, result, onGenerate, onClose 
               </div>
 
               <button disabled={!walletConnected || busy} className={`btn-primary w-full ${!walletConnected || busy ? "opacity-40 cursor-not-allowed" : ""}`} onClick={startGeneration}>
-                {walletConnected ? `Generate ${current.label} proof →` : "Connect demo wallet first"}
+                {walletConnected ? `${live ? "Submit" : "Generate"} ${current.label} proof →` : live ? "Connect Midnight Lace first" : "Connect demo wallet first"}
               </button>
             </div>
           )}
@@ -116,14 +113,16 @@ export function ProofModal({ walletConnected, busy, result, onGenerate, onClose 
           {stage === "generating" && (
             <div className="py-12 text-center">
               <div className="mx-auto w-16 h-16 rounded-full border-2 border-night-700 border-t-rate-500 animate-spin" />
-              <h3 className="text-white font-semibold mt-6">Validating locally</h3>
+              <h3 className="text-white font-semibold mt-6">{live ? "Proving on Midnight" : "Validating locally"}</h3>
               <p className="text-sm text-mist-500 mt-2 max-w-md mx-auto">
-                Checking demo issuer registration, freshness, request binding, scoped pseudonym and anti-replay nullifier. No on-chain confirmation is simulated.
+                {live
+                  ? "Lace may request approval while ShieldRate builds the private proof, submits the transaction, waits for finalization, then independently confirms the receipt through the indexer."
+                  : "Checking demo issuer registration, freshness, request binding, scoped pseudonym and anti-replay nullifier. No on-chain confirmation is simulated."}
               </p>
             </div>
           )}
 
-          {stage === "result" && result && <ResultView result={result} onReset={reset} onClose={onClose} />}
+          {stage === "result" && result && <ResultView result={result} onReset={() => setStage("select")} onClose={onClose} />}
         </div>
       </div>
     </div>
@@ -132,32 +131,39 @@ export function ProofModal({ walletConnected, busy, result, onGenerate, onClose 
 
 function ResultView({ result, onReset, onClose }: { result: ProofResult; onReset: () => void; onClose: () => void }) {
   const receipt = result.receipt;
+  const live = result.mode === "midnight-live";
   return (
     <div className="py-3 text-center">
       <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center text-4xl ${result.passed ? "bg-rate-900" : "bg-red-950/60"}`}>{result.passed ? "✓" : "×"}</div>
       <h3 className={`text-2xl font-bold mt-6 ${result.passed ? "text-rate-500" : "text-red-400"}`}>
-        {result.passed ? "Attested proof ready" : "No proof published"}
+        {result.passed ? (live ? "Receipt verified on Midnight" : "Attested proof ready") : "No proof published"}
       </h3>
       <p className="text-sm text-mist-500 mt-2 max-w-md mx-auto">
         {result.passed
-          ? "The private credential satisfied the requested policy. This build produced a local receipt only; it does not claim a Midnight transaction yet."
+          ? live
+            ? "The transaction finalized and the expected verification receipt was independently found in the indexed contract ledger."
+            : "The private credential satisfied the requested policy. This build produced a local receipt only; it does not claim a Midnight transaction."
           : result.failureReason ?? "The policy was not satisfied. The negative result stays local."}
       </p>
 
       {receipt ? (
         <div className="bg-night-800/60 border border-night-700 rounded-xl mt-6 p-4 text-left max-w-lg mx-auto">
-          <Row label="Mode" value="DEMO_ATTESTED" />
-          <Row label="Ledger" value="LOCAL ONLY · not submitted" />
+          <Row label="Mode" value={live ? "MIDNIGHT_LIVE" : "DEMO_ATTESTED"} />
+          <Row label="Ledger" value={live ? `${receipt.network.toUpperCase()} · CONFIRMED` : "LOCAL ONLY · not submitted"} />
+          {live && receipt.contractAddress && <Row label="Contract" value={short(receipt.contractAddress)} mono />}
+          {live && receipt.txHash && <Row label="Transaction" value={short(receipt.txHash)} mono />}
+          {live && receipt.blockHeight && <Row label="Block" value={receipt.blockHeight} mono />}
           <Row label="Issuer" value={receipt.issuerId} />
+          <Row label="Verification" value={short(receipt.verificationId)} mono />
           <Row label="Request" value={short(receipt.requestHash)} mono />
           <Row label="Scoped subject" value={short(receipt.scopedSubject)} mono />
           <Row label="Nullifier" value={short(receipt.nullifier)} mono />
-          <Row label="Credential valid until" value={new Date(receipt.credentialExpiresAt).toLocaleDateString()} />
-          <Row label="Request expires" value={new Date(receipt.requestExpiresAt).toLocaleTimeString()} />
+          <Row label="Credential valid until" value={new Date(receipt.credentialExpiresAt).toLocaleString()} />
+          <Row label="Request expires" value={new Date(receipt.requestExpiresAt).toLocaleString()} />
         </div>
       ) : (
         <div className="bg-red-950/20 border border-red-900/40 rounded-xl mt-6 p-4 text-left max-w-lg mx-auto text-xs text-red-200/80">
-          Failed predicates intentionally generate no shareable receipt and no ledger payload.
+          Failed predicates intentionally generate no shareable receipt. In live mode, ShieldRate also refuses to mark a proof verified unless the expected receipt is present in the indexed Midnight ledger.
         </div>
       )}
 
@@ -170,7 +176,7 @@ function ResultView({ result, onReset, onClose }: { result: ProofResult; onReset
 }
 
 function short(value: string): string {
-  return `${value.slice(0, 10)}…${value.slice(-8)}`;
+  return value.length <= 22 ? value : `${value.slice(0, 10)}…${value.slice(-8)}`;
 }
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
