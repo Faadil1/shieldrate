@@ -69,4 +69,22 @@ module schnorr {
       }
     );
   }
+
+  export pure circuit schnorrChallenge7(
+    ann_x: Field,
+    ann_y: Field,
+    pk_x: Field,
+    pk_y: Field,
+    msg: Vector<7, Field>
+  ): Field {
+    return transientHash<SchnorrHashInput<7>>(
+      SchnorrHashInput<7> {
+        ann_x: ann_x,
+        ann_y: ann_y,
+        pk_x: pk_x,
+        pk_y: pk_y,
+        msg: msg
+      }
+    );
+  }
 }
