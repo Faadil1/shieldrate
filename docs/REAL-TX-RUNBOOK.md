@@ -2,6 +2,7 @@
 
 Status: `PENDING_OPERATOR_RUN`
 Owner: Opeyemi / operator with Lace + funded Midnight environment
+Quick operator checklist: [`OPEYEMI-LIVE-GATE.md`](OPEYEMI-LIVE-GATE.md)
 
 ## Promotion gate
 
@@ -18,6 +19,12 @@ Use a fresh canonical job scope, for example:
 `sr-wave1-canonical-<date>-01`
 
 Do not reuse a job scope that already has a registered request: Commit-Before-Know deliberately makes the first registered policy immutable for that employer/job scope.
+
+### Time boundary — non-negotiable
+
+Compact `blockTimeGte` / `blockTimeLt` are treated as **Unix milliseconds** in this project. The ABI fields retain historical names such as `issuedAtEpoch`, `expiresAtEpoch` and `requestExpiresAtEpoch`, but their numeric values are milliseconds.
+
+Do not divide browser timestamps by `1000` before sending them to Compact. The compiled-circuit regression suite rejects second-based values at this boundary.
 
 ## A. Environment
 
@@ -66,6 +73,8 @@ Never record the issuer private key.
 2. Issue a provider-signed credential bound to that holder.
 3. Import the signed payload into holder private state.
 
+The credential payload must use Unix milliseconds for `issuedAtEpoch` and `expiresAtEpoch`. `npm run issue:demo` now emits millisecond values by default.
+
 Never commit holder secret, wallet seed, issuer secret or raw credential values to evidence.
 
 ## E. Employer commits policy before proof
@@ -75,7 +84,7 @@ With the intended employer Lace wallet active:
 - job scope: fresh canonical value;
 - policy: `SR-WORK-02` / code `2`;
 - fresh challenge;
-- short future expiry.
+- short future expiry expressed as Unix milliseconds at the Compact boundary.
 
 Execute **Commit policy before proof**.
 
@@ -88,7 +97,7 @@ policyCode=2
 workRequestId=
 workRequestTx=
 workRequestBlock=
-requestExpiresAt=
+requestExpiresAtMs=
 contractAddress=
 ```
 
@@ -125,11 +134,14 @@ workReceiptExists=true
 
 ## G. Negative-path checks
 
-Where practical, capture at least one source/test proof for each invariant rather than creating unnecessary public failed transactions:
+The repository now contains tests that execute the **compiled Compact contract** for the verifier-side invariants. Do not create unnecessary failed public transactions merely to reproduce those checks live.
+
+Source/compiled-circuit evidence should cover:
 
 - second request under same employer/job scope is rejected;
-- cancelled request cannot be proven;
-- expired request cannot be proven;
+- cancelled request cannot reopen the policy slot;
+- expired/second-based request expiry is rejected;
+- provider epoch remains monotonic across remove + re-register;
 - `SR-WORK-03` fails for the demo private credential and creates no public work receipt;
 - second successful qualification for the same holder/employer/job is blocked.
 
@@ -145,7 +157,7 @@ Include only public evidence:
 - contract address;
 - provider registration tx/block;
 - work request id + tx/block;
-- policy code + expiry;
+- policy code + expiry in Unix milliseconds;
 - qualification verification id + tx/block;
 - independent indexed request/receipt checks;
 - exact reproduction steps.
@@ -161,6 +173,8 @@ If any network step fails:
 - do not manufacture a successful evidence artifact;
 - if the registered request itself is wrong, use a **new job scope** after repair because the original standard is intentionally immutable;
 - if the request is correct but holder proof fails before receipt insertion, the same registered request may be retried with valid holder state while it remains active.
+
+If a time-related assertion fails, first verify that every credential/request timestamp crossing into Compact is a Unix **millisecond** value.
 
 ## Promotion
 
