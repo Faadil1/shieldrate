@@ -1,8 +1,9 @@
 import { useCallback, useState } from "react";
 import type { WalletState } from "../types";
 import { displayAddress } from "../data";
+import { executionMode } from "../security/integrity";
 
-const MOCK_ADDR = "0x7a3f8b2c9de14f7a2b8c6e1d5f4a9c3b";
+const DEMO_ADDR = "demo-wallet-7a3f8b2c9de14f7a";
 
 interface UseWalletReturn {
   wallet: WalletState;
@@ -23,14 +24,16 @@ export function useWallet(): UseWalletReturn {
   const connect = useCallback(async (): Promise<WalletState> => {
     setConnecting(true);
     try {
-      // Lace / MidnightJS wallet bridge.
-      // In production this calls `wallet.connect()` from the MidnightJS SDK.
-      await new Promise((r) => setTimeout(r, 900));
+      if (executionMode() === "midnight-live") {
+        throw new Error(
+          "MIDNIGHT_LIVE is fail-closed until the Lace/MidnightJS wallet adapter is wired",
+        );
+      }
       const next: WalletState = {
         connected: true,
-        address: MOCK_ADDR,
-        displayAddress: displayAddress(MOCK_ADDR),
-        network: "preprod",
+        address: DEMO_ADDR,
+        displayAddress: displayAddress(DEMO_ADDR),
+        network: "none",
       };
       setWallet(next);
       return next;
