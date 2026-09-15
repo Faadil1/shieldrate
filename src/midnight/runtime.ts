@@ -49,7 +49,7 @@ let api: ShieldRateAPI | null = null;
 const hex = (bytes: Uint8Array): string => Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
 const fromHex = (value: string): Uint8Array => {
   const cleaned = value.replace(/^0x/, "");
-  if (cleaned.length !== 64) throw new Error("Expected a 32-byte hex secret.");
+  if (cleaned.length !== 64) throw new Error("Expected a 32-byte hex value.");
   return new Uint8Array(cleaned.match(/.{2}/g)!.map((part) => Number.parseInt(part, 16)));
 };
 
@@ -95,7 +95,7 @@ export const getMidnightRuntimeSnapshot = (): MidnightRuntimeSnapshot => ({
 export const connectMidnightRuntime = async (): Promise<MidnightRuntimeSnapshot> => {
   if (providers && wallet) return getMidnightRuntimeSnapshot();
   const state = loadPrivateState();
-  const initialized = await initializeShieldRateProviders(state);
+  const initialized = await initializeShieldRateProviders();
   providers = initialized.providers;
   wallet = initialized.wallet;
 
@@ -158,6 +158,12 @@ export const verifyMidnightProof = async (rawRequest: ProofRequest): Promise<Liv
     challenge: await hash32(`shieldrate:challenge:v1|${request.challenge}`),
     requestExpiresAtEpoch: BigInt(Math.floor(new Date(request.requestExpiresAt).getTime() / 1000)),
   }, state);
+};
+
+export const verifyLiveReceipt = async (verificationIdHex: string): Promise<boolean> => {
+  await connectMidnightRuntime();
+  if (!api) return false;
+  return api.receiptExists(fromHex(verificationIdHex));
 };
 
 export const bytesToHex = hex;
