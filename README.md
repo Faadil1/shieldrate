@@ -3,135 +3,159 @@
 </p>
 
 <p align="center">
-  <em>Prove your worth. Reveal nothing.</em><br>
-  Privacy-preserving work credentials for freelancers on <strong>Midnight</strong>.
+  <strong>Prove you qualify for the work. Do not reveal why.</strong><br>
+  Issuer-attested private work qualification on <strong>Midnight</strong>.
 </p>
 
 # ShieldRate
 
-ShieldRate lets a freelancer prove that an **issuer-attested** work fact satisfies an employer policy — for example, income above a standard band, rating above a minimum, or completed jobs above a threshold — without sharing the raw credential.
+ShieldRate lets a freelancer or contractor prove that an **issuer-attested work profile satisfies a fixed employer qualification policy** without revealing raw income, exact rating, completed-job count, or which component carried the decision.
 
 Built for **Midnight Buildathon — Wave 1**.
 
-## Current trust boundary
+## The flagship primitive: Private Work Qualification
 
-ShieldRate now has two explicit execution modes:
+The original ShieldRate prototype proved one attribute at a time. Winning Intelligence V4 turns that into a stronger product primitive:
+
+> An employer asks one scoped question — **does this holder satisfy SR-WORK-02 for this job?** — and receives one public answer: **QUALIFIED**.
+
+The holder proves all required facts together inside Compact. A failed policy creates no public negative receipt.
+
+| Public | Private |
+|---|---|
+| employer/job scope | raw income |
+| fixed policy code | exact rating |
+| request expiry | completed-job count |
+| issuer/provider id | holder secret |
+| QUALIFIED receipt | provider signature + credential opening |
+
+Wave 1 policies are fixed in code so a verifier cannot tune a custom bundle around one person:
+
+| Policy | Public standard |
+|---|---|
+| `SR-WORK-01` | established work history |
+| `SR-WORK-02` | proven professional |
+| `SR-WORK-03` | elite track record |
+
+The exact numeric thresholds are public protocol rules. What remains private is the holder's underlying data, margin above a threshold, and any component-level outcome.
+
+### Why the composite proof matters
+
+A sequence of valid single-attribute requests can still become a privacy attack. ShieldRate's work-policy nullifier is stable for **holder + employer + job + policy**, so issuing the same policy again with a fresh challenge cannot be used as a repeated probe. The request hash still binds employer, job, policy, challenge and expiry for integrity.
+
+## Trust boundary
+
+ShieldRate has two explicit execution modes:
 
 | Mode | What it means |
 |---|---|
-| `DEMO_ATTESTED` | Local integrity demo. The UI exercises issuer registration, fixed policy bands, scoped pseudonyms, request binding, anti-replay nullifiers, freshness checks and pass-only receipts. It does **not** claim a Midnight transaction. |
-| `MIDNIGHT_LIVE` | Reserved for the real MidnightJS/Lace + deployed Compact adapter. It currently fails closed until genuine network receipts are available. |
+| `DEMO_ATTESTED` | Local integrity demo using a registered demo credential. It never claims a Midnight transaction. |
+| `MIDNIGHT_LIVE` | Real Lace / DApp Connector + MidnightJS execution path. The adapter deploys or joins the Compact contract, registers providers, submits proof transactions and independently re-reads the indexed receipt before the UI may call the result verified. |
 
-**The public demo must never display a fake transaction hash, fake contract address, fake block confirmation, or fake “Preprod confirmed” state.**
+**Current live gate:** the adapter is implemented and compiles, but the canonical judge evidence still needs one supervised interactive run on Lace that captures a real transaction and independently indexed receipt. Until that artifact exists, ShieldRate is **not** described as network-validated live proof.
 
-## Proof Integrity v1
+## Proof Integrity v2
 
-The first integrity build closes eight gaps from the original prototype:
+The current contract closes the major integrity and privacy gaps from the original prototype:
 
-1. **Issuer authenticity** — self-reported witness values are not enough. The live Compact design follows Midnight's ZK Loan attestation pattern: a registered provider signs a private credential and the Schnorr signature is verified inside the circuit.
-2. **Anti-probing policies** — employers choose from standardized bands instead of arbitrary sliders, reducing binary-search leakage.
-3. **Scoped identity** — the holder pseudonym is derived per employer + job, so there is no reusable cross-employer identifier in a receipt.
-4. **Context binding + anti-replay** — employer, job, claim, threshold, challenge and expiry are bound into the request hash; a request-specific nullifier prevents replay.
-5. **Verification-ID storage** — receipts are keyed by verification ID, not by a persistent user hash, so multiple proofs do not overwrite a public holder profile.
-6. **Freshness + revocation** — credentials carry issuance/expiry metadata. The DApp rejects expired requests; the Compact contract requires credential validity to cover the request window and supports provider epoch rotation/removal for revocation in v1.
-7. **Pass-only publication** — a failed predicate creates no shareable receipt; the Compact circuit aborts before ledger insertion.
-8. **No proof theatre** — demo and live states are visibly different. Network claims appear only when returned by the real adapter.
-
-See [`docs/PROOF-INTEGRITY-V1.md`](docs/PROOF-INTEGRITY-V1.md) for the security model and remaining live-network gate.
-
-## Canonical demo flow
-
-1. Open ShieldRate and connect the **demo wallet**.
-2. Choose an income, reputation or completed-jobs claim.
-3. Select one of the approved policy bands.
-4. ShieldRate binds the request to the demo employer/job, creates a fresh challenge and expiry, and derives a scoped subject + nullifier.
-5. The local demo issuer credential is validated.
-6. If the predicate fails, the result stays local and no receipt is produced.
-7. If it passes, ShieldRate shows a `DEMO_ATTESTED · LOCAL ONLY` receipt containing only the scoped proof metadata.
-
-No step in this demo is presented as a real Midnight transaction.
+1. **Issuer authenticity** — the provider signs the private credential and the Schnorr signature is verified inside Compact.
+2. **Fixed standards** — arbitrary threshold tuning is rejected.
+3. **Composite qualification** — the flagship path proves a whole work policy and publishes one result instead of component verdicts.
+4. **Scoped identity** — holder pseudonyms are derived per employer + job.
+5. **Challenge/context binding** — request hashes bind the verifier context.
+6. **Anti-replay / anti-probing** — legacy claims use request nullifiers; work policies use a scope-stable policy nullifier.
+7. **On-chain request expiry** — Compact checks the request deadline against block time.
+8. **Credential temporal validity** — future issuance is rejected and credential validity must cover the request window.
+9. **Provider revocation** — provider epoch rotation invalidates prior credentials without exposing a stable credential id.
+10. **Pass-only publication** — failed predicates abort before ledger insertion.
+11. **Independent receipt re-read** — a finalized transaction id alone is not enough for live verification.
+12. **No proof theatre** — demo and live evidence states remain explicit.
 
 ## Compact contract
 
-`contracts/shieldrate.compact` targets Compact language `>= 0.22 && <= 0.23` / toolchain `0.31.x` and imports `contracts/schnorr.compact`, adapted from Midnight's Apache-2.0 `example-zkloan` Schnorr verification module.
+`contracts/shieldrate.compact` targets Compact language `>= 0.22 && <= 0.23` / compiler `0.31.1`.
 
-The contract contains:
+Public state includes:
 
-- registered attestation providers (`providerId → JubjubPoint`);
-- provider epochs for revocation without a stable per-holder credential id;
-- in-circuit verification of a private provider-signed credential;
-- fixed threshold policy bands;
-- employer/job scoped holder pseudonyms;
-- challenge-bound request hashes;
-- anti-replay nullifiers;
-- pass-only `VerificationReceipt` storage keyed by verification ID.
+- registered provider public keys;
+- provider epochs;
+- used nullifiers;
+- legacy single-claim receipts;
+- composite work-qualification receipts;
+- verification counters.
 
-The CI workflow now contains a real Compact compiler gate instead of checking whether the source merely contains the words `ledger`, `witness`, and `circuit`.
+The two proof paths are:
 
-## Project structure
+- `verifyClaim(...)` — retained for compatibility and narrow evidence requests;
+- `verifyWorkPolicy(...)` — the flagship all-or-nothing private qualification primitive.
 
-```text
-.
-├── contracts/
-│   ├── shieldrate.compact      # Proof Integrity v1 contract
-│   └── schnorr.compact         # Schnorr verification module (Apache-2.0 source pattern)
-├── docs/
-│   └── PROOF-INTEGRITY-V1.md   # security model / trust boundary
-├── state/
-│   ├── CURRENT.md              # canonical current state
-│   └── HANDOVER.md             # continuation instructions
-├── src/
-│   ├── App.tsx
-│   ├── components/
-│   ├── hooks/
-│   │   ├── useWallet.ts        # demo wallet / fail-closed live adapter
-│   │   └── useContract.ts      # integrity adapter / local replay guard
-│   ├── security/
-│   │   └── integrity.ts        # policies, issuer registry, scoping, request/nullifier logic
-│   └── utils/
-│       └── proofGenerator.ts   # pass-only local demo proof flow
-└── tests/
-    └── shieldrate.test.ts      # integrity behavior tests
-```
+## Judge review path
 
-## Run the web app
+Start with [`docs/JUDGE-REVIEW.md`](docs/JUDGE-REVIEW.md). It separates source-verified claims from live-network evidence that is still pending.
+
+Fast local verification:
 
 ```bash
-npm install
-npm run dev
-npm run typecheck
-npm test
-npm run build
+npm ci
+npm run verify:judge
 ```
 
-By default, the app uses `DEMO_ATTESTED`.
-
-Do **not** set `VITE_SHIELDRATE_MODE=midnight-live` until the actual wallet, generated Compact module, deployment, provider/indexer/prover and network receipt mapping are wired. Live mode intentionally fails closed before that gate.
-
-## Compile the Compact contract
-
-Use the toolchain compatible with the current ledger-8 / 0.31.x environment:
+Compact compile gate:
 
 ```bash
 compact update 0.31.1
+rm -rf .compact-build/shieldrate
 compact compile --compact-path contracts contracts/shieldrate.compact .compact-build/shieldrate
 ```
 
-CI performs the same compile gate.
+CI runs Compact compilation plus Node 20 and Node 22 typecheck/tests/build.
 
-## What is still required for `MIDNIGHT_LIVE`
+## Midnight Live integration
 
-- real Lace/Midnight wallet connection;
-- generated contract bindings from a successful Compact build;
-- deployed ShieldRate contract address;
-- registered attestation provider + signing service;
-- prover/provider/indexer wiring;
-- real transaction submission and confirmation;
-- receipt fields populated from network responses;
-- independent verification link/receipt for the judge demo.
+The live path contains:
 
-Until those items exist, ShieldRate remains deliberately labelled **DEMO_ATTESTED**, not “live on Midnight.”
+- Lace / DApp Connector integration;
+- MidnightJS `4.1.1` providers;
+- deploy / join contract flow;
+- provider registration, epoch rotation and removal;
+- signed private credential import;
+- real `verifyClaim` and `verifyWorkPolicy` transaction methods;
+- post-finalization indexed receipt lookup;
+- proving assets packaged with the web build.
+
+The remaining interactive run is documented in [`docs/REAL-TX-RUNBOOK.md`](docs/REAL-TX-RUNBOOK.md).
+
+## Evidence discipline
+
+ShieldRate intentionally separates what exists from what is planned. See [`docs/CLAIMS.md`](docs/CLAIMS.md) for the claim ledger.
+
+In particular, the project does **not** currently claim:
+
+- a completed canonical Lace / Preprod receipt for the V4 work-policy circuit;
+- production issuer infrastructure;
+- production RBAC, team management, billing or webhook integrations shown as product architecture previews;
+- that the current dependency tree is vulnerability-free.
+
+## Product wedge
+
+ShieldRate is not a generic identity or compliance engine. Its Wave 1 wedge is **workforce / contractor qualification with bargaining privacy**:
+
+- employer or procurement team defines a standard;
+- an attested worker proves they qualify for a specific opportunity;
+- the employer gets a reusable audit receipt, not the worker's private profile;
+- the worker does not reveal exact financial or reputation data to enter the hiring funnel.
+
+That product boundary is what keeps ShieldRate distinct from general-purpose selective-disclosure systems and compensation benchmarking products.
+
+## Documentation
+
+- [`docs/JUDGE-REVIEW.md`](docs/JUDGE-REVIEW.md) — shortest evaluator path
+- [`docs/CLAIMS.md`](docs/CLAIMS.md) — claim → evidence → status ledger
+- [`docs/WORK-QUALIFICATION.md`](docs/WORK-QUALIFICATION.md) — flagship privacy primitive
+- [`docs/REAL-TX-RUNBOOK.md`](docs/REAL-TX-RUNBOOK.md) — Lace / real transaction evidence capture
+- [`docs/COMPETITIVE-INTELLIGENCE-WAVE1.md`](docs/COMPETITIVE-INTELLIGENCE-WAVE1.md) — field analysis and differentiation decisions
+- [`docs/PROOF-INTEGRITY-V1.md`](docs/PROOF-INTEGRITY-V1.md) — original integrity foundation
 
 ## License
 
-Apache-2.0. The Schnorr verification module preserves the attribution/source note for the Apache-2.0 Midnight `example-zkloan` pattern it is adapted from.
+Apache-2.0. The Schnorr verification module preserves attribution for the Apache-2.0 Midnight `example-zkloan` pattern it is adapted from.

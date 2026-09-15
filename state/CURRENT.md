@@ -1,41 +1,64 @@
 # ShieldRate — Canonical Current State
 
-Date: 2026-09-14
-Workstream: `PROOF_INTEGRITY_V1`
+Date: 2026-09-15
+Workstream: `WINNING_INTELLIGENCE_V4`
 Repository: `Faadil1/shieldrate`
-Branch: `main`
-Status: `PROOF_INTEGRITY_V1_MERGED`
+Branch: `winning-intelligence-v4`
+Status: `BUILD_COMPOSED_CI_PENDING`
 
-## Product state
+## Upstream state
 
-Proof Integrity v1 is merged into `main` via squash commit `7910cc34cab21e8fec88a746f7e0285028f35b0d`. The original ShieldRate prototype's simulated wallet/proof/transaction claims have been replaced by an explicit `DEMO_ATTESTED` trust boundary plus a fail-closed `MIDNIGHT_LIVE` mode.
+- `opeblow/shieldrate#1` — Proof Integrity v1 — merged.
+- `opeblow/shieldrate#2` — Midnight Live integration + Enterprise SaaS V3 — merged.
 
-## Implemented
+The upstream product now contains the real Midnight adapter and the approved Enterprise SaaS V3 visual direction. The final canonical Lace transaction / independently indexed receipt remains the open live-evidence gate.
 
-- issuer-attested demo registry + Compact Schnorr provider attestation model;
-- fixed policy bands to reduce threshold probing;
-- employer/job-scoped pseudonyms;
-- challenge-bound request hashes;
-- anti-replay nullifiers;
-- verification-ID receipts instead of persistent holder keys;
-- credential freshness + provider-epoch revocation;
-- pass-only publication for successful predicates;
-- no stable credential identifier in shared receipts;
-- fail-closed `MIDNIGHT_LIVE` mode;
-- UI removal of fake `preprod · confirmed`, fake live badge, fake usage stats and fake transaction language;
-- authenticated Compact release fetches through `GITHUB_TOKEN`;
-- real Compact compiler gate targeting toolchain 0.31.1.
+## Winning Intelligence V4 decision
 
-## Validation
+The current Wave 1 field is strong enough that ShieldRate should not compete as a generic selective-disclosure SaaS or a salary-threshold demo.
 
-Final PR CI run `34924939844` passed all three jobs:
+Canonical product wedge:
 
-- Verify (Node 20): PASS — install, typecheck, tests, production build;
-- Verify (Node 22): PASS — install, typecheck, tests, production build;
-- Compile Compact contract: PASS — Compact 0.31.1 successfully compiled `contracts/shieldrate.compact`.
+**Private work qualification with bargaining privacy.**
 
-During validation, two real Compact issues were found and fixed: the admin hash domain byte length (`Bytes<23>`) and explicit `Uint<64>` constraining of provider epoch increments. A transient unauthenticated GitHub API rate-limit in `compact update` was also removed by passing `GITHUB_TOKEN` to the Compact devtools job.
+Signature behavior:
+
+`Employer policy request → holder consent → private composite proof → QUALIFIED receipt`
+
+## V4 implementation composed
+
+- `verifyWorkPolicy` Compact circuit;
+- fixed `SR-WORK-01/02/03` composite standards;
+- one public `WorkQualificationReceipt` with no component verdicts;
+- on-chain request-expiry enforcement;
+- on-chain future-issuance rejection;
+- scope-stable work-policy nullifier to stop same-scope challenge replay/probing;
+- live MidnightJS work-policy method + independent indexed work-receipt lookup;
+- local parity helpers and demo qualification generator;
+- expanded privacy/anti-probing tests;
+- current README rewrite;
+- Judge Review Guide, Claim Ledger, Work Qualification spec, competitive intelligence and Real TX runbook.
+
+## Preserved invariants
+
+- provider Schnorr attestation;
+- fixed standards rather than arbitrary thresholds;
+- employer/job scoped subject;
+- provider-epoch revocation;
+- pass-only publication;
+- demo/live evidence separation;
+- no secret material in public receipts/evidence.
 
 ## Current gate
 
-`PROOF_INTEGRITY_V1` is complete and merged. The next gate is `MIDNIGHT_LIVE_INTEGRATION`: deploy the compiled contract, wire Lace/MidnightJS + generated contract bindings + provider/indexer/proof infrastructure, execute a real verification transaction, and expose only independently verifiable network receipts. Do not enable `VITE_SHIELDRATE_MODE=midnight-live` before that evidence exists.
+Run V4 CI:
+
+1. Compact 0.31.1 compile.
+2. Node 20 typecheck/tests/build.
+3. Node 22 typecheck/tests/build.
+4. Fix any compiler/runtime defects before claiming V4 source-ready.
+5. Keep dependency-audit risk explicit.
+6. After source gate, Opeyemi runs the canonical Lace `verifyWorkPolicy` scenario from `docs/REAL-TX-RUNBOOK.md`.
+7. Only a real tx + independently indexed receipt promotes the V4 live claim to `NETWORK_VERIFIED`.
+
+UI/UX V4 is intentionally not started yet.

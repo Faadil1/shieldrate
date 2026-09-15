@@ -15,6 +15,14 @@ export interface LiveVerificationRequest {
   requestExpiresAtEpoch: bigint;
 }
 
+export interface LiveWorkPolicyRequest {
+  employerScope: Uint8Array;
+  jobScope: Uint8Array;
+  policyCode: bigint;
+  challenge: Uint8Array;
+  requestExpiresAtEpoch: bigint;
+}
+
 export interface LiveVerificationReceipt {
   verificationId: Uint8Array;
   requestHash: Uint8Array;
@@ -27,6 +35,10 @@ export interface LiveVerificationReceipt {
   contractAddress: ContractAddress;
 }
 
+export interface LiveWorkQualificationReceipt extends LiveVerificationReceipt {
+  policyCode: bigint;
+}
+
 type ShieldRateCallTx = {
   registerProvider(providerId: bigint, providerPk: JubjubPoint): Promise<{ public: FinalizedTxData }>;
   rotateProviderEpoch(providerId: bigint): Promise<{ public: FinalizedTxData }>;
@@ -36,6 +48,13 @@ type ShieldRateCallTx = {
     jobScope: Uint8Array,
     claimCode: bigint,
     threshold: bigint,
+    challenge: Uint8Array,
+    requestExpiresAtEpoch: bigint,
+  ): Promise<{ public: FinalizedTxData }>;
+  verifyWorkPolicy(
+    employerScope: Uint8Array,
+    jobScope: Uint8Array,
+    policyCode: bigint,
     challenge: Uint8Array,
     requestExpiresAtEpoch: bigint,
   ): Promise<{ public: FinalizedTxData }>;
@@ -146,9 +165,74 @@ export class ShieldRateAPI {
     };
   }
 
+  // Flagship V4 path: one employer policy, one all-or-nothing private proof,
+  // one indexed QUALIFIED receipt. No component result reaches the ledger.
+  async verifyWorkPolicy(
+    request: LiveWorkPolicyRequest,
+    state: ShieldRatePrivateState,
+  ): Promise<LiveWorkQualificationReceipt> {
+    await this.setPrivateState(state);
+
+    const requestHash = ShieldRateContract.pureCircuits.deriveWorkPolicyRequestHash(
+      request.employerScope,
+      request.jobScope,
+      request.policyCode,
+      request.challenge,
+      request.requestExpiresAtEpoch,
+    );
+    const scopedSubject = ShieldRateContract.pureCircuits.deriveScopedSubject(
+      state.holderSecret,
+      request.employerScope,
+      request.jobScope,
+    );
+    const nullifier = ShieldRateContract.pureCircuits.deriveWorkPolicyNullifier(
+      state.holderSecret,
+      request.employerScope,
+      request.jobScope,
+      request.policyCode,
+    );
+    const verificationId = ShieldRateContract.pureCircuits.deriveWorkPolicyVerificationId(
+      requestHash,
+      scopedSubject,
+      nullifier,
+    );
+
+    const tx = await this.callTx.verifyWorkPolicy(
+      request.employerScope,
+      request.jobScope,
+      request.policyCode,
+      request.challenge,
+      request.requestExpiresAtEpoch,
+    );
+
+    const exists = await this.workReceiptExists(verificationId);
+    if (!exists) {
+      throw new Error("Midnight transaction finalized but the ShieldRate work-qualification receipt was not found in indexed ledger state.");
+    }
+
+    return {
+      verificationId,
+      requestHash,
+      scopedSubject,
+      nullifier,
+      providerId: state.attestationProviderId,
+      credentialExpiresAtEpoch: state.credential.expiresAtEpoch,
+      policyCode: request.policyCode,
+      txId: String(tx.public.txId),
+      blockHeight: tx.public.blockHeight,
+      contractAddress: this.contractAddress,
+    };
+  }
+
   async receiptExists(verificationId: Uint8Array): Promise<boolean> {
     const state = await this.providers.publicDataProvider.queryContractState(this.contractAddress);
     if (!state) return false;
     return ShieldRateContract.ledger(state.data).receipts.member(verificationId);
+  }
+
+  async workReceiptExists(verificationId: Uint8Array): Promise<boolean> {
+    const state = await this.providers.publicDataProvider.queryContractState(this.contractAddress);
+    if (!state) return false;
+    return ShieldRateContract.ledger(state.data).workReceipts.member(verificationId);
   }
 }

@@ -1,22 +1,55 @@
 # ShieldRate — Handover
 
-Resume from `Faadil1/shieldrate` on `main`.
+Resume from `Faadil1/shieldrate` on branch `winning-intelligence-v4`.
 
-Canonical state: `PROOF_INTEGRITY_V1_MERGED`.
-Merge commit: `7910cc34cab21e8fec88a746f7e0285028f35b0d`.
-Final PR validation: GitHub Actions run `34924939844` — Node 20 PASS, Node 22 PASS, Compact 0.31.1 compile PASS.
+Canonical state: `WINNING_INTELLIGENCE_V4 / BUILD_COMPOSED_CI_PENDING`.
+Upstream PR #1 and PR #2 are already merged into `opeblow/shieldrate:main`.
 
-## Next workstream — MIDNIGHT_LIVE_INTEGRATION
+## Product thesis
 
-1. Keep the current privacy/security invariants intact: fixed policy bands, issuer authenticity, employer/job-scoped subject, challenge-bound request hash, request nullifier, pass-only publication, expiry/revocation, and no stable credential identifier in shared receipts.
-2. Deploy `contracts/shieldrate.compact` to the selected Midnight environment using the validated Compact 0.31.1 toolchain.
-3. Register the intended attestation provider / issuer public key and define the demo issuer bootstrap path.
-4. Generate and wire the contract TypeScript bindings.
-5. Replace the demo wallet path with a real Lace/MidnightJS adapter without weakening the fail-closed behavior.
-6. Wire the provider/indexer/proof infrastructure required by the deployed environment.
-7. Execute one canonical live scenario end-to-end: employer requests an approved policy band → freelancer consents → private issuer-attested credential satisfies it → real Compact proof/transaction → employer verifies a receipt while the raw credential remains undisclosed.
-8. Capture the real contract address, network, transaction hash / ledger reference, request hash, nullifier and expiry in a judge-readable receipt.
-9. Only after that evidence is reproducible, enable `VITE_SHIELDRATE_MODE=midnight-live` and update the README/UI from `LOCAL ONLY` to genuine network-derived status.
-10. After the live integrity path is locked, proceed to the larger UI/UX redesign and judge-performance polish.
+ShieldRate is now centered on **private workforce / contractor qualification with bargaining privacy**, not generic selective disclosure and not salary verification alone.
 
-Canonical demo promise: **Prove an issuer-attested work claim for one employer/job context without revealing the raw credential, without a reusable cross-employer identity, and without publishing failed predicates.**
+Canonical promise:
+
+**Prove you qualify for the work. Do not reveal why.**
+
+Signature flow:
+
+`Employer policy request → holder consent → private composite proof → QUALIFIED receipt`
+
+## New V4 primitive
+
+`verifyWorkPolicy(...)` proves a fixed composite policy across private issuer-attested income, rating and completed-job facts.
+
+Properties:
+
+- one public policy code;
+- no separate public component outcomes;
+- failure creates no public receipt;
+- employer/job scoped subject;
+- request hash binds employer/job/policy/challenge/expiry;
+- scope-stable policy nullifier blocks same-scope re-probing with a fresh challenge;
+- request expiry is enforced against block time;
+- credential issuance cannot be in the future;
+- credential validity must cover the request window;
+- provider signature and provider epoch remain mandatory.
+
+## Immediate continuation
+
+1. Run/inspect branch CI.
+2. If Compact fails, fix the contract rather than weakening V4 semantics.
+3. If Node jobs fail, preserve API/types/test invariants while fixing generated-binding mismatches.
+4. After CI is green, update `state/WINNING-INTELLIGENCE-V4.md` and `state/CURRENT.md` to source-validated.
+5. Do NOT redesign the UI yet.
+6. Give Opeyemi `docs/REAL-TX-RUNBOOK.md` for the canonical Lace run.
+7. Capture public tx/block/contract/verificationId evidence only after a real successful run.
+8. Promote `docs/CLAIMS.md` from `LIVE_PENDING` to `NETWORK_VERIFIED` only after independent receipt lookup succeeds.
+9. Then perform the next TRACE UI/UX pass around the single signature behavior, not generic SaaS breadth.
+
+## Competitive field reminders
+
+Strong current Wave 1 references include ZK-Sentinel, VINPassport, Candor, Umbra, BACCHIRI! and ClearScope. The competitive implications and collision decisions are recorded in `docs/COMPETITIVE-INTELLIGENCE-WAVE1.md`.
+
+## Truth boundary
+
+Never claim V4 is Preprod/network-validated from CI, source compilation, a transaction function, or screenshots alone. The final live gate is still a real Lace transaction plus independently indexed `workReceipts` lookup.

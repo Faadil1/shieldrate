@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { sha256 } from "../src/utils/crypto";
 import { userHashFor } from "../src/utils/contractHelpers";
-import { deviceProof } from "../src/utils/proofGenerator";
+import { deviceProof, deviceWorkQualification } from "../src/utils/proofGenerator";
 import {
   bindRequest,
+  bindWorkPolicyRequest,
   CLAIM_POLICIES,
   DEMO_CREDENTIAL,
+  evaluateWorkPolicy,
   requestHash,
   requestNullifier,
   scopedSubject,
   validateCredential,
+  WORK_POLICIES,
+  workPolicyNullifier,
+  workPolicyRequestHash,
 } from "../src/security/integrity";
 
 const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -31,7 +36,7 @@ describe("legacy wallet hash", () => {
   });
 });
 
-describe("Proof Integrity v1", () => {
+describe("Proof Integrity v2", () => {
   it("accepts the registered, active demo issuer credential", () => {
     expect(validateCredential(DEMO_CREDENTIAL, new Date("2026-09-14T12:00:00Z")).valid).toBe(true);
   });
@@ -41,6 +46,16 @@ describe("Proof Integrity v1", () => {
     const result = validateCredential(revoked, new Date("2026-09-14T12:00:00Z"));
     expect(result.valid).toBe(false);
     expect(result.reason).toContain("revoked");
+  });
+
+  it("rejects credentials whose issuance timestamp is in the future", () => {
+    const futureIssued = { ...DEMO_CREDENTIAL, issuedAt: "2027-01-01T00:00:00.000Z" };
+    // This fixture is not registered, so use the canonical credential commitment path
+    // through a now value before the canonical credential's own issuedAt instead.
+    const result = validateCredential(DEMO_CREDENTIAL, new Date("2026-01-01T00:00:00.000Z"));
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain("future");
+    expect(futureIssued.issuedAt).toContain("2027");
   });
 
   it("uses fixed policy bands instead of arbitrary thresholds", () => {
@@ -135,5 +150,74 @@ describe("Proof Integrity v1", () => {
     });
     expect(result.passed).toBe(false);
     expect(result.failureReason).toContain("approved policy bands");
+  });
+});
+
+describe("Winning Intelligence V4 — private work qualification", () => {
+  it("defines fixed composite policies rather than verifier-tuned bundles", () => {
+    expect(WORK_POLICIES[1].id).toBe("SR-WORK-01");
+    expect(WORK_POLICIES[2]).toMatchObject({
+      incomeGreaterThan: 50000,
+      ratingAtLeast: 4.5,
+      completedJobsAtLeast: 100,
+    });
+    expect(WORK_POLICIES[3].id).toBe("SR-WORK-03");
+  });
+
+  it("qualifies the demo credential for SR-WORK-02 but not SR-WORK-03", () => {
+    expect(evaluateWorkPolicy(DEMO_CREDENTIAL, 2)).toBe(true);
+    expect(evaluateWorkPolicy(DEMO_CREDENTIAL, 3)).toBe(false);
+  });
+
+  it("binds a work-policy request to employer, job, policy, challenge and expiry", () => {
+    const a = bindWorkPolicyRequest({
+      policyCode: 2,
+      employerId: "employer-a",
+      jobId: "job-1",
+      challenge: "challenge-a",
+      requestExpiresAt: future,
+    });
+    const b = { ...a, challenge: "challenge-b" };
+    expect(workPolicyRequestHash(a)).not.toBe(workPolicyRequestHash(b));
+  });
+
+  it("keeps the work-policy nullifier stable across fresh challenges to block repeat probing", () => {
+    const holder = DEMO_CREDENTIAL.holderSecret;
+    const a = workPolicyNullifier(holder, "employer-a", "job-1", 2);
+    const sameScopeFreshChallenge = workPolicyNullifier(holder, "employer-a", "job-1", 2);
+    const otherJob = workPolicyNullifier(holder, "employer-a", "job-2", 2);
+    const otherPolicy = workPolicyNullifier(holder, "employer-a", "job-1", 1);
+    expect(a).toBe(sameScopeFreshChallenge);
+    expect(a).not.toBe(otherJob);
+    expect(a).not.toBe(otherPolicy);
+  });
+
+  it("publishes one composite QUALIFIED receipt and no component outcomes", async () => {
+    const result = await deviceWorkQualification({
+      policyCode: 2,
+      employerId: "employer-a",
+      jobId: "job-1",
+      challenge: "qualification-pass",
+      requestExpiresAt: future,
+    });
+    expect(result.qualified).toBe(true);
+    expect(result.receipt?.policyCode).toBe(2);
+    expect(result.receipt?.policyLabel).toContain("SR-WORK-02");
+    expect(result.receipt && "income" in result.receipt).toBe(false);
+    expect(result.receipt && "rating" in result.receipt).toBe(false);
+    expect(result.receipt && "completedJobs" in result.receipt).toBe(false);
+  });
+
+  it("publishes nothing when one or more composite criteria fail", async () => {
+    const result = await deviceWorkQualification({
+      policyCode: 3,
+      employerId: "employer-a",
+      jobId: "job-1",
+      challenge: "qualification-fail",
+      requestExpiresAt: future,
+    });
+    expect(result.qualified).toBe(false);
+    expect(result.receipt).toBeNull();
+    expect(result.failureReason).toContain("no public receipt");
   });
 });

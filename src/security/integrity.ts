@@ -3,6 +3,8 @@ import type {
   ProofExecutionMode,
   ProofRequest,
   ProofType,
+  WorkPolicyCode,
+  WorkPolicyRequest,
 } from "../types";
 import { sha256 } from "../utils/crypto";
 import { formatThreshold } from "../utils/contractHelpers";
@@ -12,6 +14,44 @@ export const CLAIM_POLICIES: Record<ProofType, readonly number[]> = {
   reputation: [4.0, 4.5, 4.9],
   skills: [50, 100, 200],
 } as const;
+
+export interface WorkPolicyDefinition {
+  code: WorkPolicyCode;
+  id: string;
+  label: string;
+  incomeGreaterThan: number;
+  ratingAtLeast: number;
+  completedJobsAtLeast: number;
+}
+
+// Public standards, private evidence, one public result. These are deliberately
+// fixed in Wave 1 so a verifier cannot tune thresholds around one holder.
+export const WORK_POLICIES: Record<WorkPolicyCode, WorkPolicyDefinition> = {
+  1: {
+    code: 1,
+    id: "SR-WORK-01",
+    label: "Established",
+    incomeGreaterThan: 40000,
+    ratingAtLeast: 4.0,
+    completedJobsAtLeast: 50,
+  },
+  2: {
+    code: 2,
+    id: "SR-WORK-02",
+    label: "Proven professional",
+    incomeGreaterThan: 50000,
+    ratingAtLeast: 4.5,
+    completedJobsAtLeast: 100,
+  },
+  3: {
+    code: 3,
+    id: "SR-WORK-03",
+    label: "Elite track record",
+    incomeGreaterThan: 80000,
+    ratingAtLeast: 4.9,
+    completedJobsAtLeast: 200,
+  },
+};
 
 export const DEMO_EMPLOYER_ID = "shieldrate-demo-employer";
 export const DEMO_JOB_ID = "sr-private-frontend-001";
@@ -87,6 +127,18 @@ export function bindRequest(req: ProofRequest): Required<ProofRequest> {
   };
 }
 
+export function bindWorkPolicyRequest(req: WorkPolicyRequest): Required<WorkPolicyRequest> {
+  const now = Date.now();
+  return {
+    ...req,
+    employerId: req.employerId ?? DEMO_EMPLOYER_ID,
+    jobId: req.jobId ?? DEMO_JOB_ID,
+    challenge: req.challenge ?? randomChallenge(),
+    requestExpiresAt:
+      req.requestExpiresAt ?? new Date(now + 10 * 60 * 1000).toISOString(),
+  };
+}
+
 export function requestHash(req: Required<ProofRequest>): string {
   return sha256(
     [
@@ -95,6 +147,19 @@ export function requestHash(req: Required<ProofRequest>): string {
       req.jobId,
       req.type,
       req.threshold,
+      req.challenge,
+      req.requestExpiresAt,
+    ].join("|"),
+  );
+}
+
+export function workPolicyRequestHash(req: Required<WorkPolicyRequest>): string {
+  return sha256(
+    [
+      "shieldrate:work-request:v1",
+      req.employerId,
+      req.jobId,
+      req.policyCode,
       req.challenge,
       req.requestExpiresAt,
     ].join("|"),
@@ -115,12 +180,33 @@ export function requestNullifier(holderSecret: string, hash: string): string {
   return sha256(`shieldrate:nullifier:v1|${hash}|${holderSecret}`);
 }
 
+// Stable for one holder + employer + job + policy. Fresh challenges therefore
+// cannot be used to repeat the same composite qualification probe.
+export function workPolicyNullifier(
+  holderSecret: string,
+  employerId: string,
+  jobId: string,
+  policyCode: WorkPolicyCode,
+): string {
+  return sha256(
+    `shieldrate:work-nullifier:v1|${employerId}|${jobId}|${policyCode}|${holderSecret}`,
+  );
+}
+
 export function verificationId(
   hash: string,
   subject: string,
   nullifier: string,
 ): string {
   return sha256(`shieldrate:verification:v1|${hash}|${subject}|${nullifier}`);
+}
+
+export function workPolicyVerificationId(
+  hash: string,
+  subject: string,
+  nullifier: string,
+): string {
+  return sha256(`shieldrate:work-verification:v1|${hash}|${subject}|${nullifier}`);
 }
 
 export interface CredentialValidation {
@@ -140,13 +226,19 @@ export function validateCredential(
   if (credential.revoked || DEMO_REVOKED_COMMITMENTS.has(commitment)) {
     return { valid: false, commitment, reason: "credential revoked" };
   }
+  if (new Date(credential.issuedAt).getTime() > now.getTime()) {
+    return { valid: false, commitment, reason: "credential issuance is in the future" };
+  }
   if (new Date(credential.expiresAt).getTime() <= now.getTime()) {
     return { valid: false, commitment, reason: "credential expired" };
   }
   return { valid: true, commitment };
 }
 
-export function requestIsFresh(req: Required<ProofRequest>, now = new Date()): boolean {
+export function requestIsFresh(
+  req: Required<ProofRequest> | Required<WorkPolicyRequest>,
+  now = new Date(),
+): boolean {
   return new Date(req.requestExpiresAt).getTime() > now.getTime();
 }
 
@@ -163,4 +255,16 @@ export function evaluateCredential(
     case "skills":
       return credential.completedJobs >= threshold;
   }
+}
+
+export function evaluateWorkPolicy(
+  credential: IssuerCredential,
+  policyCode: WorkPolicyCode,
+): boolean {
+  const policy = WORK_POLICIES[policyCode];
+  return (
+    credential.income > policy.incomeGreaterThan &&
+    credential.rating >= policy.ratingAtLeast &&
+    credential.completedJobs >= policy.completedJobsAtLeast
+  );
 }
