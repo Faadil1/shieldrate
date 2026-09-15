@@ -7,10 +7,10 @@ interface VerificationTableProps {
 }
 
 const FILTERS: { key: ProofType | "all"; label: string }[] = [
-  { key: "all", label: "All" },
+  { key: "all", label: "All receipts" },
   { key: "income", label: "Income" },
   { key: "reputation", label: "Reputation" },
-  { key: "skills", label: "Skills" },
+  { key: "skills", label: "Completed jobs" },
 ];
 
 export function VerificationTable({ verifications, onEmptyAction }: VerificationTableProps) {
@@ -19,54 +19,101 @@ export function VerificationTable({ verifications, onEmptyAction }: Verification
 
   if (verifications.length === 0) {
     return (
-      <div className="card flex flex-col items-center justify-center py-24 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-rate-900 flex items-center justify-center text-3xl mb-6">🛡</div>
-        <h3 className="text-lg font-semibold text-white">No shareable receipts yet</h3>
-        <p className="text-sm text-mist-500 mt-2 max-w-sm">Only successful, context-bound proofs appear here. Failed predicates stay local.</p>
-        <button className="btn-primary mt-8" onClick={onEmptyAction}>Generate first proof</button>
-      </div>
+      <section className="instrument px-6 py-14 text-center md:px-10">
+        <div className="relative z-10 mx-auto max-w-[520px]">
+          <div className="evidence-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#9da39d]">Ledger / empty</div>
+          <h3 className="display-serif mt-4 text-[34px] leading-none text-[#171b1d]">No public receipts exist yet.</h3>
+          <p className="mt-4 text-[13px] leading-6 text-[#6b706e]">
+            That is a valid state. ShieldRate only adds a receipt when a context-bound claim passes. Negative predicates stay private.
+          </p>
+          <button className="btn-primary mt-7" onClick={onEmptyAction}>Create first request <span aria-hidden>→</span></button>
+        </div>
+      </section>
     );
   }
 
   return (
-    <div className="card overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-5 border-b border-night-800">
+    <section className="overflow-hidden border border-[#171b1d] bg-[#f8f7f0]/80">
+      <div className="flex flex-col gap-5 border-b border-[#171b1d] px-5 py-5 md:px-6 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <h3 className="text-base font-semibold text-white">Shareable Proof Receipts</h3>
-          <p className="text-[11px] text-mist-600 mt-1">Demo receipts are labelled explicitly; no simulated on-chain confirmations.</p>
+          <div className="micro-label">Receipt ledger / public evidence</div>
+          <h2 className="display-serif mt-2 text-[28px] leading-none text-[#171b1d]">Shareable proof receipts</h2>
+          <p className="mt-2 text-[11px] text-[#6b706e]">A row exists only after a successful claim. Evidence mode is always explicit.</p>
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {FILTERS.map((item) => (
-            <button key={item.key} onClick={() => setFilter(item.key)} className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition ${filter === item.key ? "bg-night-800 text-neutral-200" : "text-mist-500 hover:text-mist-400"}`}>{item.label}</button>
+            <button
+              key={item.key}
+              onClick={() => setFilter(item.key)}
+              className={`rounded-[3px] border px-3 py-2 text-[10px] font-bold transition-colors ${
+                filter === item.key
+                  ? "border-[#171b1d] bg-[#171b1d] text-[#f8f7f0]"
+                  : "border-[#c8cac2] bg-transparent text-[#6b706e] hover:border-[#171b1d] hover:text-[#171b1d]"
+              }`}
+            >
+              {item.label}
+            </button>
           ))}
         </div>
       </div>
+
       <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[820px]">
+        <table className="w-full min-w-[920px] border-collapse text-left">
           <thead>
-            <tr className="border-b border-night-800">
-              {["Scoped subject", "Policy", "Result", "Evidence", "Freshness"].map((heading) => (
-                <th key={heading} className="px-6 py-3 text-[11px] font-semibold uppercase tracking-wide text-mist-600">{heading}</th>
+            <tr className="border-b border-[#c8cac2] bg-[#ecece4]/75">
+              {["Receipt", "Scoped subject", "Policy", "Evidence", "Freshness"].map((heading) => (
+                <th key={heading} className="px-5 py-3 text-[9px] font-bold uppercase tracking-[0.15em] text-[#6b706e] first:pl-6">{heading}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.map((item) => (
-              <tr key={item.id} className="border-b border-night-800 last:border-0 hover:bg-night-900/50">
-                <td className="px-6 py-4 text-xs font-mono text-white">{item.userHash}</td>
-                <td className="px-6 py-4 text-sm text-mist-400">{item.thresholdLabel}</td>
-                <td className="px-6 py-4 text-sm font-semibold text-rate-500">Passed</td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[10px] uppercase tracking-wide text-amber-300">
+            {filtered.map((item, index) => (
+              <tr key={item.id} className="receipt-hover border-b border-[#c8cac2] last:border-b-0">
+                <td className="px-5 py-4 pl-6 align-top">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-8 w-8 place-items-center rounded-full border border-[#1f6b4d] bg-[#dbece2] text-[10px] font-black text-[#1f6b4d]">✓</span>
+                    <div>
+                      <div className="evidence-mono text-[9px] font-bold text-[#9da39d]">SR-{String(index + 1).padStart(3, "0")}</div>
+                      <div className="mt-1 text-[11px] font-bold text-[#1f6b4d]">PASSED</div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-5 py-4 align-top">
+                  <div className="evidence-mono text-[10px] font-bold text-[#343a3d]">{item.userHash}</div>
+                  <div className="mt-1 text-[9px] text-[#8a8f8b]">job-scoped pseudonym</div>
+                </td>
+                <td className="px-5 py-4 align-top">
+                  <div className="text-[12px] font-bold text-[#171b1d]">{item.thresholdLabel}</div>
+                  <div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-[#8a8f8b]">{item.type}</div>
+                </td>
+                <td className="px-5 py-4 align-top">
+                  <span className={`mode-badge ${item.evidenceMode === "midnight-live" ? "mode-live" : "mode-demo"}`}>
                     {item.evidenceMode === "midnight-live" ? "Midnight live" : "Demo attested"}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-xs text-mist-500">{item.freshUntil ? `until ${new Date(item.freshUntil).toLocaleDateString()}` : item.timestamp}</td>
+                <td className="px-5 py-4 align-top text-[11px] text-[#565d5a]">
+                  {item.freshUntil ? `Valid until ${new Date(item.freshUntil).toLocaleDateString()}` : item.timestamp}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <div className="grid grid-cols-1 border-t border-[#171b1d] bg-[#ecece4]/60 md:grid-cols-3">
+        <LedgerNote label="Requested" value="Standardized policy band" />
+        <LedgerNote label="Published" value="Pass-only receipt" />
+        <LedgerNote label="Never shown" value="Raw credential value" last />
+      </div>
+    </section>
+  );
+}
+
+function LedgerNote({ label, value, last = false }: { label: string; value: string; last?: boolean }) {
+  return (
+    <div className={`px-5 py-4 ${last ? "" : "border-b border-[#c8cac2] md:border-b-0 md:border-r"}`}>
+      <div className="micro-label">{label}</div>
+      <div className="mt-1.5 text-[11px] font-semibold text-[#343a3d]">{value}</div>
     </div>
   );
 }
