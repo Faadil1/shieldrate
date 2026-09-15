@@ -4,32 +4,27 @@ export default {
   theme: {
     extend: {
       colors: {
-        night: {
-          950: "#0a0a0a",
-          900: "#111111",
-          850: "#0d0d0d",
-          800: "#1a1a1a",
-          700: "#262626",
+        shield: {
+          field: "#d8dfd2",
+          paper: "#efe4cf",
+          cream: "#fff8e8",
+          ink: "#102c31",
+          mineral: "#2b6171",
+          verify: "#1f725b",
+          iris: "#695b78",
+          amber: "#ad712f",
+          copper: "#a64c3d",
         },
-        rate: {
-          400: "#4ade80",
-          500: "#22c55e",
-          600: "#16a34a",
-          900: "#14532d",
-        },
-        mist: {
-          400: "#a3a3a3",
-          500: "#737373",
-          600: "#525252",
-          700: "#3f3f3f",
-        },
+        night: { 950: "#102c31", 900: "#193a40", 850: "#213f43", 800: "#2d4547", 700: "#56655f" },
+        rate: { 400: "#45a283", 500: "#2d8a6d", 600: "#1f725b", 900: "#cfe3d4" },
+        mist: { 400: "#69736b", 500: "#788078", 600: "#899186", 700: "#9ba397" },
       },
       fontFamily: {
         sans: ["Inter", "-apple-system", "sans-serif"],
+        display: ["Fraunces", "Georgia", "serif"],
+        mono: ["IBM Plex Mono", "ui-monospace", "monospace"],
       },
-      borderRadius: {
-        xl: "12px",
-      },
+      borderRadius: { xl: "4px" },
     },
   },
   plugins: [],

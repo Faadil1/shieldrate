@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, midnight-live-integration-v1, ui-ux-judge-experience-v1]
+    branches: [main, midnight-live-integration-v1, ui-ux-judge-experience-v1, ui-ux-trace-max-v2]
   workflow_dispatch:
 
 permissions:
@@ -22,40 +22,33 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
       - name: Install Compact toolchain
         run: |
           curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/download/compact-v0.5.2/compact-installer.sh | sh
           echo "$HOME/.compact/bin" >> "$GITHUB_PATH"
-
       - name: Compile ShieldRate
         run: |
           export PATH="$HOME/.compact/bin:$PATH"
           compact update 0.31.1
           rm -rf .compact-build/shieldrate
           compact compile --compact-path contracts contracts/shieldrate.compact .compact-build/shieldrate
-
       - name: Build web app
         env:
           VITE_SHIELDRATE_MODE: ${{ github.ref_name == 'main' && 'demo-attested' || 'midnight-live' }}
           VITE_MIDNIGHT_NETWORK_ID: preprod
         run: npm run build
-
       - name: Publish proving assets with the app
         run: |
           mkdir -p dist/keys dist/zkir
           cp -R .compact-build/shieldrate/keys/. dist/keys/
           cp -R .compact-build/shieldrate/zkir/. dist/zkir/
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

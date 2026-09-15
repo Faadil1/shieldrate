@@ -1,12 +1,17 @@
 {
   "name": "ShieldRate",
   "short_name": "ShieldRate",
-  "description": "Prove your worth. Reveal nothing. ZK reputation on Midnight.",
+  "description": "Private verification as a trust instrument.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#d8dfd2",
+  "theme_color": "#102c31",
   "icons": [
-    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192" },
-    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512" }
-  ],
-  "theme_color": "#111111",
-  "background_color": "#0a0a0a",
-  "display": "standalone"
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
