@@ -6,30 +6,6 @@ on:
   pull_request:
 
 jobs:
-  verify:
-    name: Verify (Node ${{ matrix.node }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [20, 22]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Run tests
-        run: npm test
-      - name: Build
-        run: npm run build
-
   compact:
     name: Compile Compact contract
     runs-on: ubuntu-latest
@@ -59,3 +35,33 @@ jobs:
           path: .compact-build/shieldrate
           if-no-files-found: error
           retention-days: 7
+
+  verify:
+    name: Verify (Node ${{ matrix.node }})
+    needs: compact
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Restore generated Compact assets
+        uses: actions/download-artifact@v4
+        with:
+          name: shieldrate-compact-managed
+          path: .compact-build/shieldrate
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Run tests
+        run: npm test
+      - name: Build
+        run: npm run build
