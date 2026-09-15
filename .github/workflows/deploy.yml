@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, midnight-live-integration-v1]
   workflow_dispatch:
 
 permissions:
@@ -45,6 +45,9 @@ jobs:
           compact compile --compact-path contracts contracts/shieldrate.compact .compact-build/shieldrate
 
       - name: Build web app
+        env:
+          VITE_SHIELDRATE_MODE: ${{ github.ref_name == 'midnight-live-integration-v1' && 'midnight-live' || 'demo-attested' }}
+          VITE_MIDNIGHT_NETWORK_ID: preprod
         run: npm run build
 
       - name: Publish proving assets with the app
