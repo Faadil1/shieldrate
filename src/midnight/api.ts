@@ -20,6 +20,8 @@ export interface LiveVerificationReceipt {
   requestHash: Uint8Array;
   scopedSubject: Uint8Array;
   nullifier: Uint8Array;
+  providerId: bigint;
+  credentialExpiresAtEpoch: bigint;
   txId: string;
   blockHeight: bigint;
   contractAddress: ContractAddress;
@@ -37,7 +39,7 @@ export class ShieldRateAPI {
   readonly contractAddress: ContractAddress;
 
   static async deploy(providers: ShieldRateProviders, privateState: ShieldRatePrivateState): Promise<ShieldRateAPI> {
-    const deployed = await deployContract(providers as never, {
+    const deployed = await deployContract(providers as any, {
       compiledContract: CompiledShieldRateContract,
       privateStateId: shieldRatePrivateStateKey,
       initialPrivateState: privateState,
@@ -52,7 +54,7 @@ export class ShieldRateAPI {
     contractAddress: ContractAddress,
     privateState: ShieldRatePrivateState,
   ): Promise<ShieldRateAPI> {
-    const deployed = await findDeployedContract(providers as never, {
+    const deployed = await findDeployedContract(providers as any, {
       contractAddress,
       compiledContract: CompiledShieldRateContract,
       privateStateId: shieldRatePrivateStateKey,
@@ -118,6 +120,8 @@ export class ShieldRateAPI {
       requestHash,
       scopedSubject,
       nullifier,
+      providerId: state.attestationProviderId,
+      credentialExpiresAtEpoch: state.credential.expiresAtEpoch,
       txId: String(tx.public.txId),
       blockHeight: tx.public.blockHeight,
       contractAddress: this.contractAddress,
