@@ -74,7 +74,7 @@ export function LiveSetupPanel() {
       </header>
 
       <section className="mb-6 grid border-y border-[var(--ink)] md:grid-cols-3">
-        <RuntimeStatus tone="mineral" label="Lace" value={snapshot.connected ? "Connected" : "Not connected"} good={snapshot.connected} />
+        <RuntimeStatus tone="mineral" label="Midnight wallet" value={snapshot.connected ? "Connected" : "Not connected"} good={snapshot.connected} />
         <RuntimeStatus tone="iris" label="Network" value={snapshot.wallet?.networkId ?? "—"} good={Boolean(snapshot.wallet?.networkId)} />
         <RuntimeStatus tone="verify" label="Credential" value={snapshot.hasAttestedCredential ? "Loaded" : "Not loaded"} good={snapshot.hasAttestedCredential} last />
       </section>
@@ -85,10 +85,13 @@ export function LiveSetupPanel() {
           <div className="evidence-mono mt-2 min-h-[44px] break-all text-[9px] leading-4 text-[var(--ink-soft)]">{snapshot.contractAddress ?? "NOT JOINED"}</div>
           <button className="btn-primary mt-4 w-full" disabled={busy} onClick={() => void run(async () => {
             const { deployMidnightContract } = await import("../midnight/runtime");
-            const address = await deployMidnightContract();
+            const address = await deployMidnightContract(({ stage, detail }) => {
+              setMessage(`DEPLOY / ${stage}${detail ? ` · ${detail}` : ""}`);
+            });
             setContractInput(address);
-            return `Contract deployed: ${address}`;
-          })}>Deploy ShieldRate contract</button>
+            return `READY · Contract deployed and indexed: ${address}`;
+          })}>{busy ? "Working…" : "Deploy ShieldRate contract"}</button>
+          <p className="mt-2 text-[8px] leading-4 text-[var(--muted)]">One click submits at most once. If Preprod indexing is slow, ShieldRate preserves the submitted contract and recovers it instead of redeploying.</p>
           <div className="mt-4 border-t border-[var(--rule)] pt-4">
             <input className="field evidence-mono text-[9px]" placeholder="Existing contract address" value={contractInput} onChange={(event) => setContractInput(event.target.value.trim())} />
             <button className="btn-secondary mt-2 w-full" disabled={busy || !contractInput} onClick={() => void run(async () => {
@@ -101,7 +104,7 @@ export function LiveSetupPanel() {
 
         <SetupCard code="02" title="Holder binding" subtitle="Safe field to send to the credential issuer." tone="iris">
           <p className="text-[10px] leading-5 text-[var(--muted)]">This binds the signed credential to browser-held private state without revealing the holder secret.</p>
-          <div className="redacted-field evidence-mono mt-4 min-h-[122px] break-all p-4 text-[9px] leading-5 text-[var(--iris)]">{holderBinding || "Connect Midnight Lace to initialize holder state."}</div>
+          <div className="redacted-field evidence-mono mt-4 min-h-[122px] break-all p-4 text-[9px] leading-5 text-[var(--iris)]">{holderBinding || "Connect a Midnight wallet to initialize holder state."}</div>
           <div className="mt-3 text-[8px] font-black uppercase tracking-[0.13em] text-[var(--iris)]">Safe to share with issuer · holderSecret remains private</div>
         </SetupCard>
 
