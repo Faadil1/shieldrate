@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, midnight-live-integration-v1]
   pull_request:
 
 jobs:
@@ -50,4 +50,12 @@ jobs:
       - name: Compile ShieldRate
         run: |
           export PATH="$HOME/.compact/bin:$PATH"
+          rm -rf .compact-build/shieldrate
           compact compile --compact-path contracts contracts/shieldrate.compact .compact-build/shieldrate
+      - name: Upload generated Compact assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: shieldrate-compact-managed
+          path: .compact-build/shieldrate
+          if-no-files-found: error
+          retention-days: 7
