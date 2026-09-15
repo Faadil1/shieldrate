@@ -183,7 +183,7 @@ export circuit rotateProviderEpoch(providerId: Uint<16>): [] {
   assert(providerEpochs.member(id), "provider not registered");
   const currentEpoch = providerEpochs.lookup(id);
   assert(currentEpoch < 18446744073709551615, "provider epoch exhausted");
-  providerEpochs.insert(id, currentEpoch + 1);
+  providerEpochs.insert(id, (currentEpoch + 1) as Uint<64>);
 }
 
 export circuit removeProvider(providerId: Uint<16>): [] {
