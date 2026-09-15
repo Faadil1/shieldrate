@@ -3,6 +3,7 @@ import type { ProofRequest, Verification, View } from "./types";
 import { useContract } from "./hooks/useContract";
 import { useWallet } from "./hooks/useWallet";
 import { SHIELD_VERIFICATIONS, computeStats } from "./data";
+import { executionMode } from "./security/integrity";
 import { Landing } from "./components/Landing";
 import { Sidebar, type SectionKey } from "./components/Sidebar";
 import { Header } from "./components/Header";
@@ -11,10 +12,12 @@ import { VerificationTable } from "./components/VerificationTable";
 import { FreelancerView } from "./components/FreelancerView";
 import { MobileView } from "./components/MobileView";
 import { ProofModal } from "./components/ProofModal";
+import { LiveSetupPanel } from "./components/LiveSetupPanel";
 
 export default function App() {
   const { wallet, connect, disconnect } = useWallet();
   const { busy, lastResult, generateProof } = useContract();
+  const live = executionMode() === "midnight-live";
 
   const [view, setView] = useState<View>("landing");
   const [section, setSection] = useState<SectionKey>("dashboard");
@@ -40,7 +43,6 @@ export default function App() {
       ]
     : [];
 
-  // Only successful proofs become shareable rows. Failed predicates remain local.
   const stats = computeStats([...generatedReceipt, ...SHIELD_VERIFICATIONS]);
 
   const handleGenerate = (req: ProofRequest) => {
@@ -81,16 +83,25 @@ export default function App() {
               onDisconnect={disconnect}
               onGenerateProof={() => setProofModalOpen(true)}
             />
-            <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-3 text-xs text-amber-200/80">
-              Proof Integrity v1 · DEMO_ATTESTED mode. No transaction, block confirmation or Midnight network state is simulated.
-            </div>
-            <KPICards activeVerifications={stats.active} reviewTime="local" failedProofs={stats.failed} />
-            <VerificationTable verifications={stats.listed} onEmptyAction={() => setProofModalOpen(true)} />
-            <div className="mt-8 flex gap-3">
-              <button className="btn-secondary" onClick={() => setView("landing")}>← Landing</button>
-              <button className="btn-secondary" onClick={() => setView("freelancer")}>Freelancer View</button>
-              <button className="btn-secondary" onClick={() => setView("mobile")}>Mobile App</button>
-            </div>
+
+            {section === "settings" && live ? (
+              <LiveSetupPanel />
+            ) : (
+              <>
+                <div className={`mb-5 rounded-xl border px-5 py-3 text-xs ${live ? "border-rate-500/20 bg-rate-500/5 text-rate-200/80" : "border-amber-500/20 bg-amber-500/5 text-amber-200/80"}`}>
+                  {live
+                    ? `MIDNIGHT_LIVE · ${wallet.connected ? `${wallet.network} wallet connected` : "connect Lace before proving"}. A proof is shown as verified only after transaction finalization and independent receipt lookup.`
+                    : "Proof Integrity v1 · DEMO_ATTESTED mode. No transaction, block confirmation or Midnight network state is simulated."}
+                </div>
+                <KPICards activeVerifications={stats.active} reviewTime={live ? "network" : "local"} failedProofs={stats.failed} />
+                <VerificationTable verifications={stats.listed} onEmptyAction={() => setProofModalOpen(true)} />
+                <div className="mt-8 flex gap-3">
+                  <button className="btn-secondary" onClick={() => setView("landing")}>← Landing</button>
+                  <button className="btn-secondary" onClick={() => setView("freelancer")}>Freelancer View</button>
+                  <button className="btn-secondary" onClick={() => setView("mobile")}>Mobile App</button>
+                </div>
+              </>
+            )}
           </main>
         </div>
       )}
