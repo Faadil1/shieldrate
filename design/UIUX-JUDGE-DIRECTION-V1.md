@@ -1,8 +1,27 @@
 # ShieldRate — UI/UX & Judge Experience v1
 
-Status: ACTIVE
+Status: `BUILD_VALIDATED_PREVIEW_ENV_GATE`
 Branch: `ui-ux-judge-experience-v1`
 Base: `midnight-live-integration-v1`
+
+## Current gate state
+
+- Verification-instrument design system: IMPLEMENTED
+- Landing redesign: IMPLEMENTED
+- Verification desk / evidence hierarchy: IMPLEMENTED
+- Receipt ledger: IMPLEMENTED
+- Proof request/result flow: IMPLEMENTED
+- Holder credential dossier: IMPLEMENTED
+- Mobile holder concept: IMPLEMENTED
+- Midnight live setup surface: IMPLEMENTED
+- Reduced-motion behavior: IMPLEMENTED
+- Compact 0.31.1: PASS
+- Node 20 typecheck/tests/build: PASS
+- Node 22 typecheck/tests/build: PASS
+- GitHub Pages candidate build: PASS
+- GitHub Pages deploy: BLOCKED ONLY by `github-pages` environment branch allow-list for `ui-ux-judge-experience-v1`
+- Visual acceptance review: PENDING PREVIEW
+- Merge: CLOSED until visual acceptance
 
 ## Design thesis
 
