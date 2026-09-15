@@ -2,6 +2,7 @@ import {
   CompactTypeBytes,
   transientHash,
   type ContractAddress,
+  type JubjubPoint,
 } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
 import * as ShieldRateGenerated from "../../.compact-build/shieldrate/contract/index.js";
 import type { PrivateCredential, Schnorr_SchnorrSignature } from "../../.compact-build/shieldrate/contract/index.js";
@@ -16,7 +17,7 @@ import {
   withAttestedCredential,
 } from "./witnesses";
 
-const SECRET_STORAGE_KEY = "shieldrate.midnight.secrets.v1";
+const SECRET_STORAGE_KEY = "shieldrate.midnight.session-secrets.v1";
 const bytes32Type = new CompactTypeBytes(32);
 
 interface PersistedSecrets {
@@ -66,14 +67,14 @@ const fromHex = (value: string): Uint8Array => {
 
 const loadPrivateState = (): ShieldRatePrivateState => {
   if (privateState) return privateState;
-  const stored = localStorage.getItem(SECRET_STORAGE_KEY);
+  const stored = sessionStorage.getItem(SECRET_STORAGE_KEY);
   if (stored) {
     const parsed = JSON.parse(stored) as PersistedSecrets;
     privateState = createShieldRatePrivateState(fromHex(parsed.holderSecret), fromHex(parsed.adminSecret));
     return privateState;
   }
   privateState = createShieldRatePrivateState();
-  localStorage.setItem(SECRET_STORAGE_KEY, JSON.stringify({
+  sessionStorage.setItem(SECRET_STORAGE_KEY, JSON.stringify({
     holderSecret: hex(privateState.holderSecret),
     adminSecret: hex(privateState.adminSecret),
   } satisfies PersistedSecrets));
@@ -128,6 +129,16 @@ export const joinMidnightContract = async (contractAddress: string): Promise<voi
   await connectMidnightRuntime();
   if (!providers) throw new Error("Midnight providers are not initialized.");
   api = await ShieldRateAPI.join(providers, contractAddress as ContractAddress, loadPrivateState());
+};
+
+export const registerMidnightProvider = async (
+  providerId: bigint,
+  providerPk: JubjubPoint,
+): Promise<{ txId: string; blockHeight: number }> => {
+  await connectMidnightRuntime();
+  if (!api) throw new Error("Deploy or join a ShieldRate contract before registering an issuer.");
+  const tx = await api.registerProvider(providerId, providerPk);
+  return { txId: String(tx.txId), blockHeight: tx.blockHeight };
 };
 
 export const createAttestationRequest = (): AttestationRequest => {
