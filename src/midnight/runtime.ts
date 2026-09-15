@@ -6,9 +6,14 @@ import {
 } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
 import * as ShieldRateGenerated from "../../.compact-build/shieldrate/contract/index.js";
 import type { PrivateCredential, Schnorr_SchnorrSignature } from "../../.compact-build/shieldrate/contract/index.js";
-import type { ProofRequest } from "../types";
-import { bindRequest } from "../security/integrity";
-import { ShieldRateAPI, type LiveVerificationReceipt } from "./api";
+import type { ProofRequest, WorkPolicyRequest } from "../types";
+import { bindRequest, bindWorkPolicyRequest, randomChallenge } from "../security/integrity";
+import {
+  ShieldRateAPI,
+  type LiveVerificationReceipt,
+  type LiveWorkQualificationReceipt,
+  type RegisteredWorkRequestResult,
+} from "./api";
 import { initializeShieldRateProviders } from "./providers";
 import type { MidnightWalletSession, ShieldRateProviders } from "./types";
 import {
@@ -110,11 +115,8 @@ export const connectMidnightRuntime = async (): Promise<MidnightRuntimeSnapshot>
   const initialized = await initializeShieldRateProviders();
   providers = initialized.providers;
   wallet = initialized.wallet;
-
   const configuredAddress = import.meta.env.VITE_SHIELDRATE_CONTRACT_ADDRESS as string | undefined;
-  if (configuredAddress) {
-    api = await ShieldRateAPI.join(providers, configuredAddress as ContractAddress, state);
-  }
+  if (configuredAddress) api = await ShieldRateAPI.join(providers, configuredAddress as ContractAddress, state);
   return getMidnightRuntimeSnapshot();
 };
 
@@ -131,10 +133,7 @@ export const joinMidnightContract = async (contractAddress: string): Promise<voi
   api = await ShieldRateAPI.join(providers, contractAddress as ContractAddress, loadPrivateState());
 };
 
-export const registerMidnightProvider = async (
-  providerId: bigint,
-  providerPk: JubjubPoint,
-): Promise<{ txId: string; blockHeight: number }> => {
+export const registerMidnightProvider = async (providerId: bigint, providerPk: JubjubPoint): Promise<{ txId: string; blockHeight: number }> => {
   await connectMidnightRuntime();
   if (!api) throw new Error("Deploy or join a ShieldRate contract before registering an issuer.");
   const tx = await api.registerProvider(providerId, providerPk);
@@ -160,25 +159,40 @@ export const importAttestedCredential = async (payload: AttestedCredentialPayloa
     providerEpoch: BigInt(payload.credential.providerEpoch),
   };
   const signature: Schnorr_SchnorrSignature = {
-    announcement: {
-      x: BigInt(payload.signature.announcement.x),
-      y: BigInt(payload.signature.announcement.y),
-    },
+    announcement: { x: BigInt(payload.signature.announcement.x), y: BigInt(payload.signature.announcement.y) },
     response: BigInt(payload.signature.response),
   };
   privateState = withAttestedCredential(loadPrivateState(), credential, signature, BigInt(payload.providerId));
   if (api) await api.setPrivateState(privateState);
 };
 
+export const registerMidnightWorkRequest = async (rawRequest: WorkPolicyRequest): Promise<RegisteredWorkRequestResult> => {
+  await connectMidnightRuntime();
+  if (!api) throw new Error("No live ShieldRate contract is configured.");
+  const request = bindWorkPolicyRequest(rawRequest);
+  const requestNonce = await hash32(`shieldrate:work-request-nonce:v1|${randomChallenge()}|${Date.now()}`);
+  return api.registerWorkRequest({
+    jobScope: await hash32(`shieldrate:job:v1|${request.jobId}`),
+    policyCode: BigInt(request.policyCode),
+    challenge: await hash32(`shieldrate:challenge:v1|${request.challenge}`),
+    requestNonce,
+    requestExpiresAtEpoch: BigInt(Math.floor(new Date(request.requestExpiresAt).getTime() / 1000)),
+  });
+};
+
+export const verifyMidnightRegisteredWorkPolicy = async (workRequestIdHex: string): Promise<LiveWorkQualificationReceipt> => {
+  await connectMidnightRuntime();
+  if (!api) throw new Error("No live ShieldRate contract is configured.");
+  const state = loadPrivateState();
+  if (state.attestationProviderId === 0n) throw new Error("No issuer-attested credential is loaded for MIDNIGHT_LIVE.");
+  return api.verifyRegisteredWorkPolicy(fromHex(workRequestIdHex), state);
+};
+
 export const verifyMidnightProof = async (rawRequest: ProofRequest): Promise<LiveVerificationReceipt> => {
   await connectMidnightRuntime();
-  if (!api) {
-    throw new Error("No live ShieldRate contract is configured. Set VITE_SHIELDRATE_CONTRACT_ADDRESS or deploy a contract first.");
-  }
+  if (!api) throw new Error("No live ShieldRate contract is configured. Set VITE_SHIELDRATE_CONTRACT_ADDRESS or deploy a contract first.");
   const state = loadPrivateState();
-  if (state.attestationProviderId === 0n) {
-    throw new Error("No issuer-attested credential is loaded for MIDNIGHT_LIVE.");
-  }
+  if (state.attestationProviderId === 0n) throw new Error("No issuer-attested credential is loaded for MIDNIGHT_LIVE.");
 
   const request = bindRequest(rawRequest);
   return api.verifyClaim({
@@ -193,8 +207,12 @@ export const verifyMidnightProof = async (rawRequest: ProofRequest): Promise<Liv
 
 export const verifyLiveReceipt = async (verificationIdHex: string): Promise<boolean> => {
   await connectMidnightRuntime();
-  if (!api) return false;
-  return api.receiptExists(fromHex(verificationIdHex));
+  return api ? api.receiptExists(fromHex(verificationIdHex)) : false;
+};
+
+export const verifyLiveWorkReceipt = async (verificationIdHex: string): Promise<boolean> => {
+  await connectMidnightRuntime();
+  return api ? api.workReceiptExists(fromHex(verificationIdHex)) : false;
 };
 
 export const bytesToHex = hex;

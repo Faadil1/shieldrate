@@ -53,41 +53,19 @@ function qualificationFailure(reason: string, generatedAt: string): WorkQualific
 export async function deviceProof(req: ProofRequest): Promise<ProofResult> {
   const generatedAt = new Date().toISOString();
   const mode = executionMode();
-
-  if (mode === "midnight-live") {
-    return localFailure(
-      "local demo proof generator is disabled in MIDNIGHT_LIVE; use the Midnight adapter",
-      generatedAt,
-    );
-  }
+  if (mode === "midnight-live") return localFailure("local demo proof generator is disabled in MIDNIGHT_LIVE; use the Midnight adapter", generatedAt);
 
   const bound = bindRequest(req);
-  if (!isAllowedThreshold(bound.type, bound.threshold)) {
-    return localFailure("threshold is outside the approved policy bands", generatedAt);
-  }
-  if (!requestIsFresh(bound)) {
-    return localFailure("verification request expired", generatedAt);
-  }
+  if (!isAllowedThreshold(bound.type, bound.threshold)) return localFailure("threshold is outside the approved policy bands", generatedAt);
+  if (!requestIsFresh(bound)) return localFailure("verification request expired", generatedAt);
 
   const validation = validateCredential(DEMO_CREDENTIAL);
-  if (!validation.valid) {
-    return localFailure(validation.reason ?? "credential invalid", generatedAt);
-  }
+  if (!validation.valid) return localFailure(validation.reason ?? "credential invalid", generatedAt);
 
   const hash = requestHash(bound);
-  const subject = scopedSubject(
-    DEMO_CREDENTIAL.holderSecret,
-    bound.employerId,
-    bound.jobId,
-  );
+  const subject = scopedSubject(DEMO_CREDENTIAL.holderSecret, bound.employerId, bound.jobId);
   const nullifier = requestNullifier(DEMO_CREDENTIAL.holderSecret, hash);
-  const passed = evaluateCredential(DEMO_CREDENTIAL, bound.type, bound.threshold);
-
-  // Failed predicates intentionally produce no shareable receipt and no ledger
-  // payload. This avoids publishing negative financial/reputation information.
-  if (!passed) {
-    return localFailure("threshold not met; result kept local", generatedAt);
-  }
+  if (!evaluateCredential(DEMO_CREDENTIAL, bound.type, bound.threshold)) return localFailure("threshold not met; result kept local", generatedAt);
 
   const id = verificationId(hash, subject, nullifier);
   return {
@@ -118,51 +96,23 @@ export async function deviceProof(req: ProofRequest): Promise<ProofResult> {
   };
 }
 
-// Winning Intelligence V4 flagship local path. It proves a complete employer
-// work policy and returns only QUALIFIED; it never emits component-level public
-// outcomes. The live equivalent is ShieldRateAPI.verifyWorkPolicy().
-export async function deviceWorkQualification(
-  req: WorkPolicyRequest,
-): Promise<WorkQualificationResult> {
+export async function deviceWorkQualification(req: WorkPolicyRequest): Promise<WorkQualificationResult> {
   const generatedAt = new Date().toISOString();
   const mode = executionMode();
-
-  if (mode === "midnight-live") {
-    return qualificationFailure(
-      "local qualification generator is disabled in MIDNIGHT_LIVE; use the Midnight adapter",
-      generatedAt,
-    );
-  }
+  if (mode === "midnight-live") return qualificationFailure("local qualification generator is disabled in MIDNIGHT_LIVE; use the registered Midnight work-request path", generatedAt);
 
   const policy = WORK_POLICIES[req.policyCode];
   if (!policy) return qualificationFailure("unknown work qualification policy", generatedAt);
-
   const bound = bindWorkPolicyRequest(req);
-  if (!requestIsFresh(bound)) {
-    return qualificationFailure("verification request expired", generatedAt);
-  }
+  if (!requestIsFresh(bound)) return qualificationFailure("verification request expired", generatedAt);
 
   const validation = validateCredential(DEMO_CREDENTIAL);
-  if (!validation.valid) {
-    return qualificationFailure(validation.reason ?? "credential invalid", generatedAt);
-  }
-
-  if (!evaluateWorkPolicy(DEMO_CREDENTIAL, bound.policyCode)) {
-    return qualificationFailure("work qualification not satisfied; no public receipt", generatedAt);
-  }
+  if (!validation.valid) return qualificationFailure(validation.reason ?? "credential invalid", generatedAt);
+  if (!evaluateWorkPolicy(DEMO_CREDENTIAL, bound.policyCode)) return qualificationFailure("work qualification not satisfied; no public receipt", generatedAt);
 
   const hash = workPolicyRequestHash(bound);
-  const subject = scopedSubject(
-    DEMO_CREDENTIAL.holderSecret,
-    bound.employerId,
-    bound.jobId,
-  );
-  const nullifier = workPolicyNullifier(
-    DEMO_CREDENTIAL.holderSecret,
-    bound.employerId,
-    bound.jobId,
-    bound.policyCode,
-  );
+  const subject = scopedSubject(DEMO_CREDENTIAL.holderSecret, bound.employerId, bound.jobId);
+  const nullifier = workPolicyNullifier(DEMO_CREDENTIAL.holderSecret, bound.employerId, bound.jobId);
   const id = workPolicyVerificationId(hash, subject, nullifier);
 
   return {

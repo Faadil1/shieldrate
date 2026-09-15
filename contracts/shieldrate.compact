@@ -1,18 +1,3 @@
-// ShieldRate — Proof Integrity v2 / Winning Intelligence V4
-// Compact language 0.22–0.23 / toolchain 0.31.x target.
-//
-// Integrity properties:
-// - issuer authenticity is verified in-circuit with a Schnorr attestation;
-// - arbitrary threshold probing is rejected by fixed policy bands;
-// - flagship work qualification bundles multiple private facts into ONE public result;
-// - holder identity is scoped to employer + job;
-// - requests are challenge-bound and replay-protected;
-// - work-policy nullifiers are scope-stable to block repeat probing with fresh challenges;
-// - request expiry and credential issuance time are enforced against block time;
-// - successful receipts are keyed by verification id, never a stable holder id;
-// - credential expiry and provider-epoch revocation are enforced;
-// - failed predicates abort before any receipt is written.
-
 pragma language_version >= 0.22 && <= 0.23;
 
 import CompactStandardLibrary;
@@ -38,11 +23,17 @@ export struct VerificationReceipt {
   requestExpiresAtEpoch: Uint<64>;
 }
 
-// The flagship receipt deliberately does NOT expose which private component
-// (income / reputation / completed jobs) carried the qualification. The public
-// policyCode identifies the fixed standard; the only result is QUALIFIED.
+export struct WorkRequest {
+  employerPkh: Bytes<32>;
+  jobScope: Bytes<32>;
+  policyCode: Uint<16>;
+  challenge: Bytes<32>;
+  requestNonce: Bytes<32>;
+  expiresAtEpoch: Uint<64>;
+}
+
 export struct WorkQualificationReceipt {
-  requestHash: Bytes<32>;
+  workRequestId: Bytes<32>;
   scopedSubject: Bytes<32>;
   providerId: Uint<16>;
   policyCode: Uint<16>;
@@ -62,9 +53,13 @@ export ledger providers: Map<Uint<16>, JubjubPoint>;
 export ledger providerEpochs: Map<Uint<16>, Uint<64>>;
 export ledger usedNullifiers: Set<Bytes<32>>;
 export ledger receipts: Map<Bytes<32>, VerificationReceipt>;
+export ledger workRequests: Map<Bytes<32>, WorkRequest>;
+export ledger jobRequests: Map<Bytes<32>, Bytes<32>>;
+export ledger cancelledWorkRequests: Set<Bytes<32>>;
 export ledger workReceipts: Map<Bytes<32>, WorkQualificationReceipt>;
 export ledger totalVerified: Counter;
 export ledger totalQualified: Counter;
+export ledger totalWorkRequests: Counter;
 
 witness getAttestedCredential(): [PrivateCredential, Schnorr_SchnorrSignature, Uint<16>];
 witness getHolderSecret(): HolderSecret;
@@ -106,13 +101,7 @@ export pure circuit deriveRequestHash(
   requestExpiresAtEpoch: Uint<64>
 ): Bytes<32> {
   return persistentHash<[
-    Bytes<21>,
-    Bytes<32>,
-    Bytes<32>,
-    Uint<8>,
-    Uint<64>,
-    Bytes<32>,
-    Uint<64>
+    Bytes<21>, Bytes<32>, Bytes<32>, Uint<8>, Uint<64>, Bytes<32>, Uint<64>
   ]>([
     "shieldrate:request:v1",
     employerScope,
@@ -148,71 +137,62 @@ export pure circuit deriveVerificationId(
   ]);
 }
 
-// Work qualification requests bind the same verifier context but expose only
-// a policy code, never separate component outcomes.
-export pure circuit deriveWorkPolicyRequestHash(
-  employerScope: Bytes<32>,
+export pure circuit deriveWorkRequestId(
   jobScope: Bytes<32>,
   policyCode: Uint<16>,
   challenge: Bytes<32>,
+  requestNonce: Bytes<32>,
   requestExpiresAtEpoch: Uint<64>
 ): Bytes<32> {
   return persistentHash<[
-    Bytes<26>,
-    Bytes<32>,
-    Bytes<32>,
-    Uint<16>,
-    Bytes<32>,
-    Uint<64>
+    Bytes<26>, Bytes<32>, Uint<16>, Bytes<32>, Bytes<32>, Uint<64>
   ]>([
-    "shieldrate:work-request:v1",
-    employerScope,
+    "shieldrate:work-request:v2",
     jobScope,
     policyCode,
     challenge,
+    requestNonce,
     requestExpiresAtEpoch
   ]);
 }
 
-// Unlike the legacy request nullifier, this one intentionally omits challenge
-// and expiry. A verifier cannot learn more by re-issuing the same policy pack
-// for the same employer/job with a fresh challenge.
+export pure circuit deriveJobKey(
+  employerPkh: Bytes<32>,
+  jobScope: Bytes<32>
+): Bytes<32> {
+  return persistentHash<[Bytes<22>, Bytes<32>, Bytes<32>]>([
+    "shieldrate:work-job:v1",
+    employerPkh,
+    jobScope
+  ]);
+}
+
 export pure circuit deriveWorkPolicyNullifier(
   secret: HolderSecret,
-  employerScope: Bytes<32>,
-  jobScope: Bytes<32>,
-  policyCode: Uint<16>
+  employerPkh: Bytes<32>,
+  jobScope: Bytes<32>
 ): Bytes<32> {
-  return persistentHash<[
-    Bytes<28>,
-    Bytes<32>,
-    Bytes<32>,
-    Uint<16>,
-    HolderSecret
-  ]>([
-    "shieldrate:work-nullifier:v1",
-    employerScope,
+  return persistentHash<[Bytes<28>, Bytes<32>, Bytes<32>, HolderSecret]>([
+    "shieldrate:work-nullifier:v2",
+    employerPkh,
     jobScope,
-    policyCode,
     secret
   ]);
 }
 
 export pure circuit deriveWorkPolicyVerificationId(
-  requestHash: Bytes<32>,
+  workRequestId: Bytes<32>,
   scopedSubject: Bytes<32>,
   nullifier: Bytes<32>
 ): Bytes<32> {
   return persistentHash<[Bytes<31>, Bytes<32>, Bytes<32>, Bytes<32>]>([
-    "shieldrate:work-verification:v1",
-    requestHash,
+    "shieldrate:work-verification:v2",
+    workRequestId,
     scopedSubject,
     nullifier
   ]);
 }
 
-// Canonical off-chain issuer helper. The demo/testnet issuer uses this generated
-// pure circuit so challenge hashing/encoding cannot drift from the verifier.
 export pure circuit deriveIssuerChallenge(
   annX: Field,
   annY: Field,
@@ -243,29 +223,21 @@ export pure circuit deriveIssuerChallenge(
   );
 }
 
+export circuit callerPkh(): Bytes<32> {
+  return persistentHash<ZswapCoinPublicKey>(ownPublicKey());
+}
+
 circuit assertAllowedPolicy(claimCode: Uint<8>, threshold: Uint<64>): [] {
   if (claimCode == 1) {
-    assert(
-      threshold == 40000 || threshold == 50000 || threshold == 80000 || threshold == 120000,
-      "income threshold outside approved policy bands"
-    );
+    assert(threshold == 40000 || threshold == 50000 || threshold == 80000 || threshold == 120000, "income threshold outside approved policy bands");
   } else if (claimCode == 2) {
-    assert(
-      threshold == 400 || threshold == 450 || threshold == 490,
-      "rating threshold outside approved policy bands"
-    );
+    assert(threshold == 400 || threshold == 450 || threshold == 490, "rating threshold outside approved policy bands");
   } else {
     assert(claimCode == 3, "unknown claim code");
-    assert(
-      threshold == 50 || threshold == 100 || threshold == 200,
-      "jobs threshold outside approved policy bands"
-    );
+    assert(threshold == 50 || threshold == 100 || threshold == 200, "jobs threshold outside approved policy bands");
   }
 }
 
-// Three sealed-in-code qualification standards for Wave 1. A policy is one
-// public question and produces one public answer. The holder proves all private
-// components together; no component result is published.
 circuit assertWorkPolicy(policyCode: Uint<16>, credential: PrivateCredential): [] {
   if (policyCode == 1) {
     assert(credential.income > 40000, "work qualification policy not satisfied");
@@ -284,30 +256,46 @@ circuit assertWorkPolicy(policyCode: Uint<16>, credential: PrivateCredential): [
 }
 
 circuit assertAdmin(): [] {
-  assert(
-    contractAdmin == deriveAdminPublicKey(getAdminSecret()),
-    "admin authorization failed"
-  );
+  assert(contractAdmin == deriveAdminPublicKey(getAdminSecret()), "admin authorization failed");
 }
 
-export circuit registerProvider(
-  providerId: Uint<16>,
-  providerPk: JubjubPoint
-): [] {
+circuit assertCredential(providerId: Uint<16>, credential: PrivateCredential, signature: Schnorr_SchnorrSignature): [] {
+  const disclosedProviderId = disclose(providerId);
+  assert(providers.member(disclosedProviderId), "attestation provider not registered");
+  assert(providerEpochs.member(disclosedProviderId), "provider epoch unavailable");
+  assert(credential.providerEpoch == providerEpochs.lookup(disclosedProviderId), "credential revoked by provider epoch rotation");
+  assert(blockTimeGte(disclose(credential.issuedAtEpoch)), "credential issuance is in the future");
+
+  const holderSecret = getHolderSecret();
+  const holderBinding = deriveHolderBinding(holderSecret);
+  const holderBindingField = transientHash<Bytes<32>>(holderBinding);
+  const attestedMessage: Vector<7, Field> = [
+    credential.income as Field,
+    credential.ratingX100 as Field,
+    credential.completedJobs as Field,
+    credential.issuedAtEpoch as Field,
+    credential.expiresAtEpoch as Field,
+    credential.providerEpoch as Field,
+    holderBindingField
+  ];
+  Schnorr_schnorrVerify<7>(attestedMessage, signature, providers.lookup(disclosedProviderId));
+}
+
+export circuit registerProvider(providerId: Uint<16>, providerPk: JubjubPoint): [] {
   assertAdmin();
-  providers.insert(disclose(providerId), disclose(providerPk));
-  if (!providerEpochs.member(disclose(providerId))) {
-    providerEpochs.insert(disclose(providerId), 0);
+  const id = disclose(providerId);
+  assert(!providers.member(id), "provider already registered");
+  providers.insert(id, disclose(providerPk));
+  if (!providerEpochs.member(id)) {
+    providerEpochs.insert(id, 0);
   }
 }
 
-// V1 revocation is provider-epoch based. Rotating the epoch invalidates all
-// credentials previously signed by that provider without exposing a stable
-// per-holder credential id during verification.
 export circuit rotateProviderEpoch(providerId: Uint<16>): [] {
   assertAdmin();
   const id = disclose(providerId);
-  assert(providerEpochs.member(id), "provider not registered");
+  assert(providers.member(id), "provider not active");
+  assert(providerEpochs.member(id), "provider epoch unavailable");
   const currentEpoch = providerEpochs.lookup(id);
   assert(currentEpoch < 18446744073709551615, "provider epoch exhausted");
   providerEpochs.insert(id, (currentEpoch + 1) as Uint<64>);
@@ -317,10 +305,57 @@ export circuit removeProvider(providerId: Uint<16>): [] {
   assertAdmin();
   const id = disclose(providerId);
   assert(providers.member(id), "provider not registered");
+  assert(providerEpochs.member(id), "provider epoch unavailable");
+  const currentEpoch = providerEpochs.lookup(id);
+  assert(currentEpoch < 18446744073709551615, "provider epoch exhausted");
   providers.remove(id);
-  if (providerEpochs.member(id)) {
-    providerEpochs.remove(id);
-  }
+  providerEpochs.insert(id, (currentEpoch + 1) as Uint<64>);
+}
+
+export circuit registerWorkRequest(
+  jobScope: Bytes<32>,
+  policyCode: Uint<16>,
+  challenge: Bytes<32>,
+  requestNonce: Bytes<32>,
+  requestExpiresAtEpoch: Uint<64>
+): Bytes<32> {
+  assert(policyCode >= 1 && policyCode <= 3, "unknown work qualification policy");
+  assert(blockTimeLt(disclose(requestExpiresAtEpoch)), "work request already expired");
+
+  const employerPkh = callerPkh();
+  const disclosedJobScope = disclose(jobScope);
+  const jobKey = deriveJobKey(employerPkh, disclosedJobScope);
+  assert(!jobRequests.member(jobKey), "qualification standard already fixed for this employer/job");
+
+  const workRequestId = deriveWorkRequestId(
+    disclosedJobScope,
+    disclose(policyCode),
+    disclose(challenge),
+    disclose(requestNonce),
+    disclose(requestExpiresAtEpoch)
+  );
+  assert(!workRequests.member(workRequestId), "work request already exists");
+
+  workRequests.insert(workRequestId, WorkRequest {
+    employerPkh: employerPkh,
+    jobScope: disclosedJobScope,
+    policyCode: disclose(policyCode),
+    challenge: disclose(challenge),
+    requestNonce: disclose(requestNonce),
+    expiresAtEpoch: disclose(requestExpiresAtEpoch)
+  });
+  jobRequests.insert(jobKey, workRequestId);
+  totalWorkRequests.increment(1);
+  return disclose(workRequestId);
+}
+
+export circuit cancelWorkRequest(workRequestId: Bytes<32>): [] {
+  const id = disclose(workRequestId);
+  assert(workRequests.member(id), "unknown work request");
+  assert(!cancelledWorkRequests.member(id), "work request already cancelled");
+  const request = workRequests.lookup(id);
+  assert(request.employerPkh == callerPkh(), "only the request employer may cancel");
+  cancelledWorkRequests.insert(id);
 }
 
 export circuit verifyClaim(
@@ -335,39 +370,9 @@ export circuit verifyClaim(
   assert(blockTimeLt(disclose(requestExpiresAtEpoch)), "verification request expired");
 
   const [credential, signature, providerId] = getAttestedCredential();
-  const disclosedProviderId = disclose(providerId);
-  assert(providers.member(disclosedProviderId), "attestation provider not registered");
-  assert(providerEpochs.member(disclosedProviderId), "provider epoch unavailable");
-  assert(
-    credential.providerEpoch == providerEpochs.lookup(disclosedProviderId),
-    "credential revoked by provider epoch rotation"
-  );
-  assert(blockTimeGte(disclose(credential.issuedAtEpoch)), "credential issuance is in the future");
-  assert(
-    credential.expiresAtEpoch >= requestExpiresAtEpoch,
-    "credential expires before the verification request"
-  );
+  assertCredential(providerId, credential, signature);
+  assert(credential.expiresAtEpoch >= requestExpiresAtEpoch, "credential expires before the verification request");
 
-  const holderSecret = getHolderSecret();
-  const holderBinding = deriveHolderBinding(holderSecret);
-  const holderBindingField = transientHash<Bytes<32>>(holderBinding);
-
-  const attestedMessage: Vector<7, Field> = [
-    credential.income as Field,
-    credential.ratingX100 as Field,
-    credential.completedJobs as Field,
-    credential.issuedAtEpoch as Field,
-    credential.expiresAtEpoch as Field,
-    credential.providerEpoch as Field,
-    holderBindingField
-  ];
-  Schnorr_schnorrVerify<7>(
-    attestedMessage,
-    signature,
-    providers.lookup(disclosedProviderId)
-  );
-
-  // A failed predicate aborts here. No negative result reaches the ledger.
   if (claimCode == 1) {
     assert(credential.income > threshold, "income threshold not met");
   } else if (claimCode == 2) {
@@ -376,119 +381,62 @@ export circuit verifyClaim(
     assert((credential.completedJobs as Uint<64>) >= threshold, "jobs threshold not met");
   }
 
-  const requestHash = deriveRequestHash(
-    employerScope,
-    jobScope,
-    claimCode,
-    threshold,
-    challenge,
-    requestExpiresAtEpoch
-  );
+  const holderSecret = getHolderSecret();
+  const requestHash = deriveRequestHash(employerScope, jobScope, claimCode, threshold, challenge, requestExpiresAtEpoch);
   const scopedSubject = deriveScopedSubject(holderSecret, employerScope, jobScope);
   const nullifier = deriveNullifier(holderSecret, requestHash);
-
   assert(!usedNullifiers.member(disclose(nullifier)), "request replay detected");
 
   const verificationId = deriveVerificationId(requestHash, scopedSubject, nullifier);
   usedNullifiers.insert(disclose(nullifier));
-  receipts.insert(
-    disclose(verificationId),
-    disclose(VerificationReceipt {
-      requestHash: requestHash,
-      scopedSubject: scopedSubject,
-      providerId: providerId,
-      claimCode: claimCode,
-      threshold: threshold,
-      requestExpiresAtEpoch: requestExpiresAtEpoch
-    })
-  );
+  receipts.insert(disclose(verificationId), disclose(VerificationReceipt {
+    requestHash: requestHash,
+    scopedSubject: scopedSubject,
+    providerId: providerId,
+    claimCode: claimCode,
+    threshold: threshold,
+    requestExpiresAtEpoch: requestExpiresAtEpoch
+  }));
   totalVerified.increment(1);
-
   return disclose(verificationId);
 }
 
-// Flagship Wave 1 primitive: prove that an issuer-attested worker satisfies a
-// complete employer qualification standard while publishing only QUALIFIED.
-export circuit verifyWorkPolicy(
-  employerScope: Bytes<32>,
-  jobScope: Bytes<32>,
-  policyCode: Uint<16>,
-  challenge: Bytes<32>,
-  requestExpiresAtEpoch: Uint<64>
-): Bytes<32> {
-  assert(policyCode >= 1 && policyCode <= 3, "unknown work qualification policy");
-  assert(blockTimeLt(disclose(requestExpiresAtEpoch)), "verification request expired");
+export circuit verifyRegisteredWorkPolicy(workRequestId: Bytes<32>): Bytes<32> {
+  const id = disclose(workRequestId);
+  assert(workRequests.member(id), "unknown work request");
+  assert(!cancelledWorkRequests.member(id), "work request cancelled");
+  const request = workRequests.lookup(id);
+  assert(blockTimeLt(request.expiresAtEpoch), "work request expired");
 
   const [credential, signature, providerId] = getAttestedCredential();
-  const disclosedProviderId = disclose(providerId);
-  assert(providers.member(disclosedProviderId), "attestation provider not registered");
-  assert(providerEpochs.member(disclosedProviderId), "provider epoch unavailable");
-  assert(
-    credential.providerEpoch == providerEpochs.lookup(disclosedProviderId),
-    "credential revoked by provider epoch rotation"
-  );
-  assert(blockTimeGte(disclose(credential.issuedAtEpoch)), "credential issuance is in the future");
-  assert(
-    credential.expiresAtEpoch >= requestExpiresAtEpoch,
-    "credential expires before the verification request"
-  );
+  assertCredential(providerId, credential, signature);
+  assert(credential.expiresAtEpoch >= request.expiresAtEpoch, "credential expires before the work request");
+  assertWorkPolicy(request.policyCode, credential);
 
   const holderSecret = getHolderSecret();
-  const holderBinding = deriveHolderBinding(holderSecret);
-  const holderBindingField = transientHash<Bytes<32>>(holderBinding);
-  const attestedMessage: Vector<7, Field> = [
-    credential.income as Field,
-    credential.ratingX100 as Field,
-    credential.completedJobs as Field,
-    credential.issuedAtEpoch as Field,
-    credential.expiresAtEpoch as Field,
-    credential.providerEpoch as Field,
-    holderBindingField
-  ];
-  Schnorr_schnorrVerify<7>(
-    attestedMessage,
-    signature,
-    providers.lookup(disclosedProviderId)
-  );
+  const scopedSubject = deriveScopedSubject(holderSecret, request.employerPkh, request.jobScope);
+  const nullifier = deriveWorkPolicyNullifier(holderSecret, request.employerPkh, request.jobScope);
+  assert(!usedNullifiers.member(disclose(nullifier)), "qualification already proven for this opportunity");
 
-  // All-or-nothing. Failed component checks abort without recording which
-  // component failed and without creating any public negative receipt.
-  assertWorkPolicy(policyCode, credential);
-
-  const requestHash = deriveWorkPolicyRequestHash(
-    employerScope,
-    jobScope,
-    policyCode,
-    challenge,
-    requestExpiresAtEpoch
-  );
-  const scopedSubject = deriveScopedSubject(holderSecret, employerScope, jobScope);
-  const nullifier = deriveWorkPolicyNullifier(
-    holderSecret,
-    employerScope,
-    jobScope,
-    policyCode
-  );
-  assert(!usedNullifiers.member(disclose(nullifier)), "work policy already proven for this scope");
-
-  const verificationId = deriveWorkPolicyVerificationId(requestHash, scopedSubject, nullifier);
+  const verificationId = deriveWorkPolicyVerificationId(id, scopedSubject, nullifier);
   usedNullifiers.insert(disclose(nullifier));
-  workReceipts.insert(
-    disclose(verificationId),
-    disclose(WorkQualificationReceipt {
-      requestHash: requestHash,
-      scopedSubject: scopedSubject,
-      providerId: providerId,
-      policyCode: policyCode,
-      requestExpiresAtEpoch: requestExpiresAtEpoch
-    })
-  );
+  workReceipts.insert(disclose(verificationId), disclose(WorkQualificationReceipt {
+    workRequestId: id,
+    scopedSubject: scopedSubject,
+    providerId: providerId,
+    policyCode: request.policyCode,
+    requestExpiresAtEpoch: request.expiresAtEpoch
+  }));
   totalQualified.increment(1);
   return disclose(verificationId);
 }
 
 export circuit receiptExists(verificationId: Bytes<32>): Boolean {
   return receipts.member(disclose(verificationId));
+}
+
+export circuit workRequestExists(workRequestId: Bytes<32>): Boolean {
+  return workRequests.member(disclose(workRequestId));
 }
 
 export circuit workReceiptExists(verificationId: Bytes<32>): Boolean {
