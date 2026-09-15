@@ -1,6 +1,6 @@
 # ShieldRate — UI/UX TRACE Max V2 State
 
-Status: `BUILD_COMPOSED_CI_PENDING`
+Status: `DEPLOYED_VISUAL_ACCEPTANCE_PENDING`
 Date: 2026-09-15
 Repository: `Faadil1/shieldrate`
 Branch: `ui-ux-trace-max-v2`
@@ -23,16 +23,29 @@ Base: `ui-ux-judge-experience-v1`
 - reduced-motion preserved
 - CI + Pages workflows extended to V2 branch
 
-## Runtime invariant
+## Validation
 
-No Compact, cryptographic, Midnight adapter, proof-generation or receipt-verification logic is intentionally changed in this workstream. V2 is presentation / interaction architecture only.
+- Compact 0.31.1 compile: PASS
+- Node 20 typecheck: PASS
+- Node 20 tests: PASS
+- Node 20 production build: PASS
+- Node 22 typecheck: PASS
+- Node 22 tests: PASS
+- Node 22 production build: PASS
+- GitHub Pages candidate build: PASS
+- GitHub Pages deploy: PASS
+- Runtime/proof logic intentionally unchanged by this workstream
 
-## Next gates
+## Preview
 
-1. Compact 0.31.1 compile.
-2. Node 20 typecheck/tests/build.
-3. Node 22 typecheck/tests/build.
-4. GitHub Pages candidate build.
-5. `github-pages` environment allows `ui-ux-trace-max-v2`.
-6. Visual acceptance review.
-7. No merge until the visual gate is accepted.
+- GitHub Pages candidate: `https://faadil1.github.io/shieldrate/`
+- Canonical implementation commit: `15ad918586e74ddcef37e71b9574b056c167ca74`
+- Browser favicon cache-bust: `favicon.svg?v=2`
+
+## Current gate
+
+Visual acceptance is now the only open UI/UX gate. Review landing, verification bureau, proof flow, holder dossier, mobile pass, operator setup and favicon/trust-mark before any merge or upstream UI PR.
+
+## Merge rule
+
+No merge until visual acceptance. Real Lace/Midnight transaction validation remains a separate gate owned by the Midnight live workstream / Opeyemi.
