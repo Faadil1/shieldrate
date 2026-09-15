@@ -66,12 +66,12 @@ export function isAllowedThreshold(type: ProofType, threshold: number): boolean 
 }
 
 export function randomChallenge(): string {
-  const bytes = new Uint8Array(16);
+  const bytes = new Uint8Array(32);
   globalThis.crypto?.getRandomValues?.(bytes);
   if (bytes.some((value) => value !== 0)) {
     return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
   }
-  return sha256(`${Date.now()}|${Math.random()}`).slice(0, 32);
+  return sha256(`${Date.now()}|${Math.random()}`);
 }
 
 export function bindRequest(req: ProofRequest): Required<ProofRequest> {
