@@ -1,52 +1,83 @@
-# ShieldRate — Judge Review Guide
+# Criterion — Judge Review Guide
 
-Status: `V4_SOURCE_VERIFIED / NETWORK_EVIDENCE_PENDING`
+Status: `V4_NETWORK_VERIFIED`
+
+Technical continuity: the deployed Compact contract and repository retain the historical `shieldrate` / `SR-*` namespace. Criterion is the judge-facing product name.
 
 ## 1. Product claim in one sentence
 
-**ShieldRate lets an employer commit a qualification standard before seeing a candidate outcome, then lets an issuer-attested worker prove they satisfy that standard without revealing the private work data or leaving a public failure trail.**
-
-The signature sequence is:
+**Criterion makes the employer commit a qualification standard before the worker proves anything, then lets an issuer-attested worker prove they qualify without revealing the private work data or leaving a public failure trail.**
 
 `COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`
 
-## 2. What is different here
+## 2. Why this matters
 
-ShieldRate treats privacy as a two-sided protocol problem:
+Criterion treats privacy as a two-sided protocol problem:
 
 - **holder privacy:** raw income, rating and completed-job history remain private;
-- **verifier accountability:** the employer wallet commits the policy before proof and cannot replace it under the same registered job scope;
+- **criteria discipline:** one policy is fixed for the employer/job scope before holder proof;
 - **failure privacy:** refusal/failure creates no holder-specific public negative receipt;
-- **opportunity privacy budget:** a holder can publish at most one successful qualification receipt for that employer/job opportunity.
+- **opportunity privacy budget:** successful publication is scoped to the opportunity rather than a reusable worker identity.
 
-Among the reviewed public Wave 1 repositories, we found many strong credential, compliance, claim, eligibility and privacy products, but did not surface another submission centered on an employer-authenticated immutable pre-commit of hiring/contractor criteria before candidate proof. This is a reviewed-field observation, not a claim about every possible submission.
+The key distinction is not simply “zero-knowledge credentials.” The verifier's ability to change the question is part of the privacy model.
 
-## 3. Source-verifiable now
+## 3. Canonical Preprod proof
+
+Contract:
+
+`c67fcd95e1620693817a1248bceda34e507d39416a7e9c3038ad89f9844513d2`
+
+Provider 2:
+- registration tx `00f51998e02cad86df03e65954de9c5ae53191f749ce71b11b74ebf260ecf79ea2`
+- block `2568791`
+- indexed epoch `0`
+
+Committed employer request:
+- job `sr-wave1-canonical-2026-09-15-03`
+- policy `SR-WORK-02` / code `2`
+- request `d7f42cc52438981bcd093e39c4e738004d9ff9b26af7348f4cea8abe690c9ed1`
+- tx `00a18b7182d20be241c81d1de17bfa8d1d84d1621c2da921b27a8714b57e0a8eee`
+- block `2575087`
+
+Private qualification:
+- verification `6eef4d8dfd28dcee6dd95502e4baf14b1838525fc8cc6b2b67c94d8c618583b1`
+- tx `00aedb486f5ab66543f4c16bd90232566d6598bcde2829676ac4e782d098b1d836`
+- block `2575167`
+- expected verification id confirmed in indexed `workReceipts` before the runtime returned `QUALIFIED`.
+
+Evidence bundle:
+
+`evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-2026-09-16.md`
+
+## 4. Source-verifiable properties
 
 - Compact 0.31.1 compiles the V4 contract.
-- Employer identity is derived from `ownPublicKey()`.
-- `registerWorkRequest` fixes one policy per employer + job scope.
-- cancelling a request does not free the job key for a replacement standard.
-- `verifyRegisteredWorkPolicy` reads the already-registered policy rather than accepting proof-time thresholds.
+- `registerWorkRequest` fixes one policy per employer + job key.
+- cancelling does not free that job key for policy replacement.
+- `verifyRegisteredWorkPolicy` reads the already-registered request instead of accepting proof-time thresholds.
 - provider-signed private credentials are verified in-circuit with Schnorr.
-- holder identity is scoped to employer + job.
-- work nullifier is opportunity-scoped rather than challenge/policy-scoped.
-- request expiry is checked against Midnight block time.
-- future-issued credentials are rejected against block time.
-- provider removal preserves and increments epoch history.
-- failed qualification writes no receipt.
-- successful work receipt contains no raw income/rating/jobs or component verdicts.
-- MidnightJS live adapter registers requests, submits proof transactions and re-reads indexed state.
-- operator UI exposes the V4 Commit → Prove sequence.
-- live runtime is code-split from the judge-facing entry bundle.
-- application tests currently cover 20 integrity/privacy cases.
-- dependency toolchain was refreshed to Vite 8.3.0 / Vitest 5.0.1 and the remediation validation reported 0 npm audit vulnerabilities.
+- holder subject is scoped to employer + job.
+- work nullifier is opportunity-scoped.
+- request and credential time checks use Unix seconds on the live path.
+- future-issued credentials are rejected.
+- provider epoch history is monotonic.
+- failed qualification aborts before receipt insertion.
+- successful receipt contains no raw income, rating, completed-job count or component verdicts.
+- the MidnightJS adapter requires indexed receipt confirmation before reporting a successful live qualification.
 
-## 4. Still pending
+## 5. Falsification checks
 
-A canonical real Lace/Preprod evidence bundle for this exact V4 request-registry flow is still pending. Do not interpret source compilation or a successful build as network validation.
+A reviewer can try to break the thesis:
 
-## 5. Clean-checkout verification
+- register a second policy under the same employer/job key → must fail;
+- cancel then replace that policy → must still fail;
+- use an expired work request → qualification must fail;
+- use a future-issued or revoked-epoch credential → qualification must fail;
+- use a credential that does not satisfy the policy → no public qualification receipt;
+- successfully qualify twice for the same opportunity → nullifier guard must stop duplicate publication;
+- inspect `WorkQualificationReceipt` → no private component values or component-level verdicts.
+
+## 6. Clean-checkout verification
 
 ```bash
 npm ci
@@ -64,43 +95,19 @@ rm -rf .compact-build/shieldrate
 compact compile --compact-path contracts contracts/shieldrate.compact .compact-build/shieldrate
 ```
 
-## 6. Read these files in order
+## 7. Read these files in order
 
-1. `contracts/shieldrate.compact`
-2. `docs/COMMIT-BEFORE-KNOW.md`
-3. `tests/shieldrate.test.ts`
-4. `src/midnight/api.ts`
-5. `src/midnight/runtime.ts`
-6. `docs/CLAIMS.md`
-7. `docs/REAL-TX-RUNBOOK.md`
+1. `README.md`
+2. `evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-2026-09-16.md`
+3. `contracts/shieldrate.compact`
+4. `docs/COMMIT-BEFORE-KNOW.md`
+5. `src/midnight/api.ts`
+6. `src/midnight/runtime.ts`
+7. `tests/compact-contract.test.ts`
 8. `docs/DEMO-90S.md`
 
-## 7. The falsification checks
+## 8. Truth boundary / non-claims
 
-A reviewer can try to break the thesis:
+Criterion does not claim production issuer governance, production RBAC/billing/webhooks, legal fairness of a committed policy, or a guaranteed one-to-one mapping between `jobScope` and an external real-world requisition.
 
-- register a second policy under the same employer/job scope → must fail;
-- cancel then try to replace the same job policy → must still fail;
-- use an expired work request → proof must fail;
-- use a future-issued or revoked-epoch credential → proof must fail;
-- prove a policy the private credential does not satisfy → no public qualification receipt;
-- successfully prove, then attempt another qualification for the same opportunity → nullifier guard must fail;
-- inspect `WorkQualificationReceipt` → no private component values or component-level verdicts.
-
-## 8. Non-claims
-
-ShieldRate does not currently claim:
-
-- V4 network validation until the canonical Lace run is captured;
-- production real-world issuer governance;
-- that a committed employer policy is lawful, unbiased or non-discriminatory;
-- that on-chain `jobScope` prevents a malicious employer from describing the same real-world role under a distinct external requisition identifier;
-- production RBAC, billing or webhook infrastructure.
-
-## 9. Winning bar before visual redesign
-
-1. final branch CI green on Compact + Node 20/22 + npm audit gate;
-2. real employer work-request transaction captured;
-3. real holder qualification transaction captured;
-4. expected `workReceipts` entry independently found in indexed contract state;
-5. only then promote live claims and redesign the judge experience around `COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`.
+The current contract derives employer scope from the Midnight public-key context exposed by `ownPublicKey()`. This is sufficient for the canonical demonstration but should not be treated as the final production authorization boundary; secret-witness-derived identity remains a hardening item.
