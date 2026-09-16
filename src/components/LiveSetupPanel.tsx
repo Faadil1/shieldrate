@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { WORK_POLICIES } from "../security/integrity";
+import { DEMO_JOB_ID, WORK_POLICIES } from "../security/integrity";
 import type { WorkPolicyCode } from "../types";
 import type { AttestedCredentialPayload } from "../midnight/runtime";
 import { BrandMark } from "./BrandMark";
@@ -12,6 +12,8 @@ type Snapshot = {
 };
 
 const EMPTY_SNAPSHOT: Snapshot = { connected: false, wallet: null, contractAddress: null, hasAttestedCredential: false };
+const JOB_ID_STORAGE_KEY = "shieldrate.midnight.job-id.v1";
+const CANONICAL_LIVE_JOB_ID = "sr-wave1-canonical-2026-09-15-03";
 
 export function LiveSetupPanel() {
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY_SNAPSHOT);
@@ -21,7 +23,7 @@ export function LiveSetupPanel() {
   const [providerX, setProviderX] = useState("");
   const [providerY, setProviderY] = useState("");
   const [credentialJson, setCredentialJson] = useState("");
-  const [jobId, setJobId] = useState("sr-private-frontend-001");
+  const [jobId, setJobId] = useState(() => sessionStorage.getItem(JOB_ID_STORAGE_KEY) ?? CANONICAL_LIVE_JOB_ID);
   const [policyCode, setPolicyCode] = useState<WorkPolicyCode>(2);
   const [workRequestId, setWorkRequestId] = useState("");
   const [message, setMessage] = useState("");
@@ -44,6 +46,7 @@ export function LiveSetupPanel() {
   };
 
   useEffect(() => { void refresh(); }, []);
+  useEffect(() => { sessionStorage.setItem(JOB_ID_STORAGE_KEY, jobId); }, [jobId]);
 
   const run = async (action: () => Promise<string | void>) => {
     setBusy(true);
@@ -144,16 +147,33 @@ export function LiveSetupPanel() {
         <SetupCard code="05" title="Commit employer standard" subtitle="One immutable policy per employer + job scope." tone="copper">
           <p className="text-[10px] leading-5 text-[var(--muted)]">The active wallet becomes the on-chain employer identity through `ownPublicKey()`. Once this job scope is registered, its qualification standard cannot be replaced.</p>
           <input className="field mt-4" value={jobId} onChange={(event) => setJobId(event.target.value)} placeholder="Job scope / requisition id" />
+          {jobId === DEMO_JOB_ID && <p className="mt-2 text-[8px] font-black uppercase tracking-[0.09em] text-[var(--copper)]">Indexed legacy demo scope detected. Use a fresh opportunity scope; this value is already fixed on Preprod.</p>}
           <select className="field mt-2" value={policyCode} onChange={(event) => setPolicyCode(Number(event.target.value) as WorkPolicyCode)}>
             {(Object.values(WORK_POLICIES)).map((policy) => <option key={policy.code} value={policy.code}>{policy.id} · {policy.label}</option>)}
           </select>
-          <button className="btn-primary mt-3 w-full" disabled={busy || !snapshot.connected || !snapshot.contractAddress || !jobId} onClick={() => void run(async () => {
+          <button className="btn-secondary mt-3 w-full" disabled={busy || !snapshot.connected || !snapshot.contractAddress || !jobId} onClick={() => void run(async () => {
+            const { preflightCurrentJobScope } = await import("../midnight/jobPreflight");
+            const preflight = await preflightCurrentJobScope(String(snapshot.contractAddress), jobId);
+            if (preflight.alreadyFixed) {
+              if (preflight.fixedWorkRequestId) setWorkRequestId(preflight.fixedWorkRequestId);
+              return `FIXED · ${jobId} already has work request ${preflight.fixedWorkRequestId ?? "unknown"}. No transaction was submitted.`;
+            }
+            return `OPEN · ${jobId} · jobScope ${preflight.jobScope} · employer/job key ${preflight.jobKey}. Safe to commit once.`;
+          })}>Check job scope</button>
+          <button className="btn-primary mt-2 w-full" disabled={busy || !snapshot.connected || !snapshot.contractAddress || !jobId || jobId === DEMO_JOB_ID} onClick={() => void run(async () => {
+            const { preflightCurrentJobScope } = await import("../midnight/jobPreflight");
+            const preflight = await preflightCurrentJobScope(String(snapshot.contractAddress), jobId);
+            if (preflight.alreadyFixed) {
+              if (preflight.fixedWorkRequestId) setWorkRequestId(preflight.fixedWorkRequestId);
+              return `STOP · ${jobId} is already fixed as ${preflight.fixedWorkRequestId ?? "unknown"}. No proving, signing, or submission occurred.`;
+            }
             const { bytesToHex, registerMidnightWorkRequest } = await import("../midnight/runtime");
             const registered = await registerMidnightWorkRequest({ policyCode, jobId });
             const id = bytesToHex(registered.workRequestId);
             setWorkRequestId(id);
             return `Work request fixed on-chain: ${id} · tx ${registered.txId} · block ${registered.blockHeight}`;
           })}>Commit policy before proof</button>
+          <p className="mt-2 text-[8px] leading-4 text-[var(--muted)]">The job scope is persisted for this browser session. Card 05 always performs a read-only employer+job preflight immediately before any transaction.</p>
         </SetupCard>
 
         <SetupCard code="06" title="Prove qualification" subtitle="Holder consents by proving the registered request." tone="verify">
