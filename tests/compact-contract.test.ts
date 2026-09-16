@@ -142,6 +142,28 @@ describe("compiled Compact contract — Commit-Before-Know invariants", () => {
     expect(h.state.totalWorkRequests).toBe(1n);
   });
 
+  it("keeps distinct job scopes independent for the same employer", () => {
+    const h = new CompiledShieldRateHarness();
+    const firstWorkRequestId = h.registerWorkRequest(
+      bytes32(21),
+      2n,
+      bytes32(22),
+      bytes32(23),
+      BigInt(NOW_MS + 120_000),
+    );
+    const secondWorkRequestId = h.registerWorkRequest(
+      bytes32(24),
+      2n,
+      bytes32(25),
+      bytes32(26),
+      BigInt(NOW_MS + 120_000),
+    );
+
+    expect(h.state.workRequests.member(firstWorkRequestId)).toBe(true);
+    expect(h.state.workRequests.member(secondWorkRequestId)).toBe(true);
+    expect(h.state.totalWorkRequests).toBe(2n);
+  });
+
   it("cancellation closes the request without reopening the employer/job policy slot", () => {
     const h = new CompiledShieldRateHarness();
     const jobScope = bytes32(12);
