@@ -1,6 +1,10 @@
-import type { ContractAddress } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
+import {
+  createCircuitContext,
+  type ContractAddress,
+} from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
 import * as ShieldRateGenerated from "../../.compact-build/shieldrate/contract/index.js";
 import { initializeShieldRateProviders } from "./providers";
+import { createShieldRatePrivateState, witnesses } from "./witnesses";
 
 const hex = (bytes: Uint8Array): string =>
   Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
@@ -103,6 +107,63 @@ export async function preflightJobScope(
     jobKey: hex(jobKey),
     alreadyFixed,
     fixedWorkRequestId: alreadyFixed ? hex(ledger.jobRequests.lookup(jobKey)) : null,
+  };
+}
+
+export interface CurrentEmployerJobScopeDiagnostic {
+  jobId: string;
+  jobScope: string;
+  currentEmployerPkh: string;
+  referenceEmployerPkh: string;
+  sameEmployerAsReference: boolean;
+  currentJobKey: string;
+  alreadyFixedForCurrentEmployer: boolean;
+  fixedWorkRequestId: string | null;
+}
+
+export async function preflightCurrentEmployerJobScope(
+  contractAddress: string,
+  jobId: string,
+  referenceWorkRequestIdHex: string,
+): Promise<CurrentEmployerJobScopeDiagnostic> {
+  const { providers, wallet } = await initializeShieldRateProviders();
+  const state = await providers.publicDataProvider.queryContractState(contractAddress as ContractAddress);
+  if (!state) throw new Error("ShieldRate contract state is unavailable.");
+
+  const ledger = ShieldRateGenerated.ledger(state.data);
+  const referenceWorkRequestId = fromHex(referenceWorkRequestIdHex);
+  if (!ledger.workRequests.member(referenceWorkRequestId)) {
+    throw new Error("Reference work request is not indexed.");
+  }
+  const reference = ledger.workRequests.lookup(referenceWorkRequestId);
+
+  // Run the already-deployed contract's exported callerPkh() circuit locally.
+  // This mirrors the identity material MidnightJS supplies to a call without
+  // balancing, signing, proving, or submitting any transaction.
+  const contract = new ShieldRateGenerated.Contract(witnesses);
+  const context = createCircuitContext(
+    contractAddress as ContractAddress,
+    wallet.shieldedCoinPublicKey,
+    state as any,
+    createShieldRatePrivateState(),
+  );
+  const currentEmployerPkh = contract.impureCircuits.callerPkh(context as any).result;
+
+  const jobScope = await hash32(`shieldrate:job:v1|${jobId}`);
+  const currentJobKey = ShieldRateGenerated.pureCircuits.deriveJobKey(currentEmployerPkh, jobScope);
+  const alreadyFixedForCurrentEmployer = ledger.jobRequests.member(currentJobKey);
+
+  return {
+    jobId,
+    jobScope: hex(jobScope),
+    currentEmployerPkh: hex(currentEmployerPkh),
+    referenceEmployerPkh: hex(reference.employerPkh),
+    sameEmployerAsReference: hex(currentEmployerPkh) === hex(reference.employerPkh),
+    currentJobKey: hex(currentJobKey),
+    alreadyFixedForCurrentEmployer,
+    fixedWorkRequestId: alreadyFixedForCurrentEmployer
+      ? hex(ledger.jobRequests.lookup(currentJobKey))
+      : null,
   };
 }
 
