@@ -2,7 +2,7 @@
 
 Resume from `Faadil1/shieldrate` on `winning-intelligence-v4`.
 
-Canonical state: `WINNING_INTELLIGENCE_V4 / V4_WASM_RUNTIME_DEDUP_PATCHED_OPERATOR_RETEST_PENDING`.
+Canonical state: `WINNING_INTELLIGENCE_V4 / V4_DEPLOYMENT_READY_PROVIDER_GATE_PENDING`.
 
 ## Product thesis
 
@@ -12,89 +12,78 @@ Signature flow:
 
 `COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`
 
-ShieldRate fixes the employer's qualification policy before a holder proves anything, while failure/refusal leaves no holder-specific public negative record.
+ShieldRate fixes the employer qualification standard before the holder proves anything. Failure/refusal leaves no holder-specific public negative record.
 
-## Core V4 mechanisms
+## What is now proven in the supervised browser run
 
-- employer-authenticated work requests via `ownPublicKey()`;
-- one immutable standard per employer + job scope;
-- cancellation without policy replacement;
-- provider-signed private credential with Schnorr verification;
-- composite qualification with one positive receipt;
-- opportunity-scoped nullifier and scoped holder pseudonym;
-- Unix-millisecond time boundary;
-- monotonic provider epoch revocation;
-- independent indexed request/receipt verification;
-- V4 operator UI;
-- lazy Midnight runtime;
-- explicit bounded deploy stages and submitted-deployment recovery;
-- hosted wallet prover preference with delegated fallback;
-- browser `Buffer` bootstrap;
-- single browser WASM/runtime resolution boundary.
+The third 1AM / Midnight Preprod test on 2026-09-15 succeeded through deployment after the Buffer and WASM-runtime fixes.
 
-## Validation immediately before this handover
+Observed wallet/runtime path:
 
-Commit `175df7d6db8fa274bdee0c2a4fde00bc92702871` passed Compact compile, Node 20 verification, Node 22 audit/typecheck/tests/build, and GitHub Pages.
+- wallet connected on `preprod`;
+- 1AM **Balance & Sign Transaction** prompt approved;
+- 1AM separate **Submit Transaction** prompt approved;
+- submit prompt explicitly said `Submit a finalized transaction to the network`;
+- ShieldRate returned from the wallet flow and populated the current deployed contract.
 
-The second supervised browser test then advanced beyond the prior `Buffer is not defined` defect and exposed the next browser-only failure:
+Contract address:
 
-`Cannot read properties of undefined (reading 'contractstate_deserialize')`
+`c67fcd95e1620693817a1248bceda34e507d39416a7e9c3038ad89f9844513d2`
 
 Interpretation:
 
-- wallet was connected;
-- network was `preprod`;
-- holder binding was generated;
-- deploy was invoked;
-- no `SUBMITTING` stage or tx id was observed;
-- no duplicate-deployment risk was created by this run.
+- deployment has crossed `BALANCING` and `SUBMITTING`;
+- the app's deploy function only returns the address after its bounded indexer confirmation + join sequence, so the supervised run reached the effective `READY` state;
+- no redeploy should be attempted for this session/contract;
+- this closes the browser deployment gate only, not the complete V4 network-evidence gate.
 
-## Root cause now isolated
+## Runtime repair that enabled this
 
-`package-lock.json` contains parallel runtime families:
+Commit `de6b1baa60538a72d6e96908b286e1abf21963d5`:
 
-- root `onchain-runtime-v3@3.1.1` vs protocol-pinned `3.0.0`;
-- root `ledger-v8@8.1.2` vs protocol-pinned `8.1.0`.
+- removed the legacy custom WASM resolver/manual chunk path;
+- deduped `@midnight-ntwrk/compact-runtime`, `@midnight-ntwrk/onchain-runtime-v3`, and `@midnight-ntwrk/ledger-v8`;
+- pinned browser resolution to protocol-compatible `onchain-runtime-v3@3.0.0` and `ledger-v8@8.1.0`;
+- passed Compact compile, Node 20 verification, Node 22 audit/typecheck/tests/build, Vite build and GitHub Pages deploy.
 
-Midnight's current Vite/WASM guidance identifies multiple runtime instances as a browser-only failure class because wasm-bindgen object identity is instance-scoped. CI and CLI paths can therefore pass while the browser fails.
+## Immediate continuation — do not deploy again
 
-## Repair applied
+Keep the same browser tab/session open if possible because current holder/admin private state is session-scoped.
 
-`vite.config.ts` is normalized to one runtime boundary:
+Continue on the already deployed contract:
 
-- remove the legacy custom resolver/manual WASM chunk path;
-- alias `@midnight-ntwrk/onchain-runtime-v3` to the `midnight-js-protocol@4.1.1` pinned `3.0.0` copy;
-- alias `@midnight-ntwrk/ledger-v8` to the protocol-pinned `8.1.0` copy;
-- dedupe `compact-runtime`, `onchain-runtime-v3`, and `ledger-v8`;
-- keep Vite browser WASM handling and Compact runtime pre-bundling.
+1. **Issuer/provider registration**
+   - enter provider id (canonical run uses `1` unless already occupied);
+   - use the expected provider public key/registration values;
+   - approve the wallet transaction;
+   - capture provider id + tx/block/public confirmation.
+2. **Employer Commit-Before-Know request**
+   - use a fresh job scope;
+   - policy code `2`;
+   - capture work request id + tx/block + millisecond expiry;
+   - confirm via indexed work-request read.
+3. **Credential import**
+   - load the signed private provider payload; never expose issuer private key or holder secret.
+4. **Private qualification**
+   - execute the registered policy proof;
+   - capture verification id + tx/block.
+5. **Independent receipt read**
+   - verify `workReceiptExists=true` from the indexed state.
+6. **Evidence lock**
+   - create `evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-<date>.md` only when all public values are independently checked.
 
-No contract semantics or public claim changes are part of this repair.
+## Evidence still missing from the deployment itself
 
-## Immediate continuation
-
-1. Confirm CI and Pages pass for the WASM dedup/pinning commit.
-2. Hard refresh `https://faadil1.github.io/shieldrate/`.
-3. Reconnect 1AM on `preprod`.
-4. Click `Deploy ShieldRate contract` exactly once.
-5. Capture the last stage: `PREPARING`, `PROVING`, `BALANCING`, `SUBMITTING`, `INDEXING`, `JOINING`, or `READY`.
-6. If `SUBMITTING` errors or times out, inspect wallet activity before any retry.
-7. If `INDEXING` times out, recover the persisted deployment rather than redeploy.
-8. If `READY`, continue provider registration → employer work request → private qualification → independent `workReceipts` re-read.
-
-Only after those public values are independently checked may we create:
-
-`evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-<date>.md`
-
-and promote the exact canonical flow from `LIVE_PENDING` to `NETWORK_VERIFIED`.
+The video proves that a finalized transaction was submitted and that ShieldRate reached the joined contract state, but it does not expose the deployment transaction id/block number. Capture those later if available from 1AM/indexer/explorer and add them to the evidence bundle; do not invent them.
 
 ## TRACE gate
 
-Do not start the next TRACE UI/UX redesign before the operator evidence gate is closed.
+Do not start the next TRACE UI/UX redesign before the live evidence bundle is locked.
 
 Required order:
 
-`browser runtime repair → deploy retest → real request → real proof → indexed receipt → evidence lock → TRACE UI/UX`
+`deployment READY → provider registration → real request → private proof → indexed receipt → evidence lock → TRACE UI/UX`
 
 ## Truth boundary
 
-Never call V4 network-validated from source/CI alone. Never claim committed criteria are automatically lawful or fair. Never expose holder/issuer secrets in evidence.
+Never call the full V4 flow network-validated from deployment alone. Never expose holder/issuer secrets. Never claim committed criteria are automatically lawful or fair.
