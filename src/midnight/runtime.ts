@@ -1,4 +1,4 @@
-import { createUnprovenDeployTx } from "@midnight-ntwrk/midnight-js-contracts";
+﻿import { createUnprovenDeployTx } from "@midnight-ntwrk/midnight-js-contracts";
 import {
   CompactTypeBytes,
   sampleSigningKey,
@@ -300,7 +300,7 @@ export const deployMidnightContract = async (
     }
     throw new Error(
       `A ShieldRate deployment was already submitted and is still waiting for the Preprod indexer. ` +
-      `Do not deploy again. Contract ${pending.contractAddress} · tx ${pending.txId}. Retry this button in a minute.`,
+      `Do not deploy again. Contract ${pending.contractAddress} Â· tx ${pending.txId}. Retry this button in a minute.`,
     );
   }
 
@@ -355,7 +355,7 @@ export const deployMidnightContract = async (
   if (!indexed) {
     throw new Error(
       `ShieldRate was submitted, but Preprod has not indexed the contract within 120s. ` +
-      `Do not deploy again. Contract ${String(contractAddress)} · tx ${txId}. Retry this button to recover the submitted deployment.`,
+      `Do not deploy again. Contract ${String(contractAddress)} Â· tx ${txId}. Retry this button to recover the submitted deployment.`,
     );
   }
 
@@ -403,7 +403,7 @@ export const registerMidnightProvider = async (
   const before = await api.providerStatus(providerId, providerPk);
   if (before.exists) {
     if (!before.matchesExpectedKey) {
-      throw new Error(`STOP · Provider ${providerId.toString()} is already registered with a different public key. Do not submit another registration.`);
+      throw new Error(`STOP Â· Provider ${providerId.toString()} is already registered with a different public key. Do not submit another registration.`);
     }
     return {
       txId: null,
@@ -432,7 +432,7 @@ export const registerMidnightProvider = async (
     const recovered = await waitForProviderState(providerId, providerPk);
     if (recovered?.exists) {
       if (!recovered.matchesExpectedKey) {
-        throw new Error(`STOP · Submission outcome is ambiguous and provider ${providerId.toString()} is now registered with a different public key.`);
+        throw new Error(`STOP Â· Submission outcome is ambiguous and provider ${providerId.toString()} is now registered with a different public key.`);
       }
       return {
         txId: null,
@@ -445,7 +445,7 @@ export const registerMidnightProvider = async (
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(
       `Provider registration was not confirmed in indexed ledger state. No automatic retry was performed. ` +
-      `Use “Check provider on-chain” before creating any fresh transaction. Original submission error: ${detail}`,
+      `Use â€œCheck provider on-chainâ€ before creating any fresh transaction. Original submission error: ${detail}`,
     );
   }
 };
@@ -486,7 +486,7 @@ export const registerMidnightWorkRequest = async (rawRequest: WorkPolicyRequest)
     policyCode: BigInt(request.policyCode),
     challenge: await hash32(`shieldrate:challenge:v1|${request.challenge}`),
     requestNonce,
-    requestExpiresAtEpoch: BigInt(new Date(request.requestExpiresAt).getTime()),
+    requestExpiresAtEpoch: BigInt(Math.floor(new Date(request.requestExpiresAt).getTime() / 1000)),
   });
 };
 
@@ -511,7 +511,7 @@ export const verifyMidnightProof = async (rawRequest: ProofRequest): Promise<Liv
     claimCode: claimCode(request),
     threshold: thresholdForCircuit(request),
     challenge: await hash32(`shieldrate:challenge:v1|${request.challenge}`),
-    requestExpiresAtEpoch: BigInt(new Date(request.requestExpiresAt).getTime()),
+    requestExpiresAtEpoch: BigInt(Math.floor(new Date(request.requestExpiresAt).getTime() / 1000)),
   }, state);
 };
 

@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+﻿import * as crypto from "node:crypto";
 import { ecMulGenerator } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
 import { pureCircuits } from "../.compact-build/shieldrate/contract/index.js";
 
@@ -20,9 +20,9 @@ const providerEpoch = bigintEnv("SHIELDRATE_PROVIDER_EPOCH", "0");
 const income = bigintEnv("SHIELDRATE_INCOME", "68000");
 const ratingX100 = bigintEnv("SHIELDRATE_RATING_X100", "487");
 const completedJobs = bigintEnv("SHIELDRATE_COMPLETED_JOBS", "120");
-const now = BigInt(Date.now());
+const now = BigInt(Math.floor(Date.now() / 1000));
 const issuedAtEpoch = bigintEnv("SHIELDRATE_ISSUED_AT_EPOCH", now.toString());
-const expiresAtEpoch = bigintEnv("SHIELDRATE_EXPIRES_AT_EPOCH", (now + 60n * 60n * 24n * 30n * 1000n).toString());
+const expiresAtEpoch = bigintEnv("SHIELDRATE_EXPIRES_AT_EPOCH", (now + 60n * 60n * 24n * 30n).toString());
 
 if (expiresAtEpoch <= issuedAtEpoch) throw new Error("Credential expiry must be after issuance.");
 
