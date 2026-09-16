@@ -10,11 +10,13 @@
 <p align="center">
   <a href="https://faadil1.github.io/shieldrate/"><strong>Live App</strong></a>
   ·
+  <a href="https://cdn.creativeclaw.co/u/f920e1ba/videos/eb72489e-4b21-4b1e-a1bd-b67796e9d4fb.mp4"><strong>90s Demo Video</strong></a>
+  ·
   <a href="docs/JUDGE-REVIEW.md"><strong>Judge Guide</strong></a>
   ·
   <a href="evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-2026-09-16.md"><strong>Network Evidence</strong></a>
   ·
-  <a href="docs/DEMO-90S.md"><strong>90s Demo Script</strong></a>
+  <a href="docs/DEMO-90S.md"><strong>Demo Script</strong></a>
 </p>
 
 <p align="center"><sub>Midnight Buildathon · Wave 1 · Preprod · NETWORK_VERIFIED</sub></p>
@@ -23,7 +25,11 @@
 > Criterion completed a canonical Midnight Preprod run: provider registration, employer policy commit, private holder qualification, and indexed `QUALIFIED` receipt confirmation. The public evidence bundle contains no raw credential, issuer secret, holder secret, admin secret, or wallet seed/private key.
 
 <p align="center">
-  <img src="public/og-image.png" alt="Criterion — private qualification with committed criteria" width="100%" />
+  <a href="https://cdn.creativeclaw.co/u/f920e1ba/videos/eb72489e-4b21-4b1e-a1bd-b67796e9d4fb.mp4">
+    <img src="public/og-image.png" alt="Criterion — private qualification with committed criteria" width="100%" />
+  </a>
+  <br />
+  <sub>▶ Watch the validated 90-second judge demo</sub>
 </p>
 
 ## Why Criterion exists
@@ -228,6 +234,7 @@ compact compile --compact-path contracts contracts/shieldrate.compact .compact-b
 ## Useful links
 
 - [Live App](https://faadil1.github.io/shieldrate/)
+- [Validated 90s Judge Demo](https://cdn.creativeclaw.co/u/f920e1ba/videos/eb72489e-4b21-4b1e-a1bd-b67796e9d4fb.mp4)
 - [Judge Guide](docs/JUDGE-REVIEW.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Commit-Before-Know](docs/COMMIT-BEFORE-KNOW.md)
