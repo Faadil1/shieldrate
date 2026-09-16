@@ -1,14 +1,18 @@
-# ShieldRate — Canonical Current State
+# Criterion — Canonical Current State
 
 Date: 2026-09-16
 Workstream: `WINNING_INTELLIGENCE_V4`
 Repository: `Faadil1/shieldrate`
 Branch: `winning-intelligence-v4`
-Status: `V4_NETWORK_VERIFIED`
+Status: `V4_NETWORK_VERIFIED / JUDGE_PACKAGING`
+
+Public product name: **Criterion**.
+
+Technical continuity: the repository, deployed Compact contract, storage keys and protocol identifiers retain the historical `shieldrate` / `SR-*` namespace so the verified deployment and evidence chain are not disturbed.
 
 ## Product thesis
 
-**Prove you qualify for the work. Do not reveal why.**
+**Prove you qualify. Reveal nothing you do not owe.**
 
 Canonical flow: `COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`.
 
@@ -34,7 +38,7 @@ Do not register provider 2 again. Keep issuer secret material private/local.
 
 ## Unix-seconds bug — fixed
 
-ShieldRate now supplies Unix seconds to Compact block-time predicates. The historical request `971f6ab4...e36892b` remains diagnostic only because its expiry was encoded in milliseconds.
+Criterion now supplies Unix seconds to Compact block-time predicates. The historical request `971f6ab4...e36892b` remains diagnostic only because its expiry was encoded in milliseconds.
 
 ## Card 05 issue — resolved
 
@@ -88,6 +92,12 @@ Verified chain:
 Public evidence bundle:
 `evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-2026-09-16.md`
 
+## Judge-facing promotion
+
+Criterion is now the public identity used for the landing page, workspace shell, runtime copy, page metadata, README, Judge Review and 90-second demo narrative. The landing page surfaces the canonical commit block, qualification block, contract and indexed-receipt state above the fold.
+
+Do not rename the repository or deployed contract namespace before submission/video; that would add avoidable routing and evidence-continuity risk.
+
 ## Truth boundary
 
 Proven live for this Preprod flow: deployment, provider 2 registration, Unix-second request semantics, immutable employer/job commit, successful private qualification, and indexed receipt confirmation.
@@ -96,4 +106,4 @@ Not claimed: publication of raw credential/private secrets, generalized producti
 
 ## Next gate
 
-Core live proof is closed. TRACE / judge-facing packaging, README/demo narrative, UX polish, and optional authorization hardening may proceed without reopening the verified network flow.
+Network proof is closed. Record the judge video using `docs/DEMO-90S.md`, then finish submission packaging. Do not reopen the canonical transaction flow merely for recording.
