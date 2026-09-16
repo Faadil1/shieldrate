@@ -57,8 +57,8 @@ export function Sidebar({ active, onNavigate }: SidebarProps) {
       <button onClick={() => onNavigate("dashboard")} className="flex items-center gap-3 border-b border-[var(--ink)] px-5 py-5 text-left">
         <BrandMark compact />
         <span className="min-w-0">
-          <span className="trust-wordmark block text-[17px] text-[var(--ink)]">SHIELDRATE</span>
-          <span className="evidence-mono mt-1 block truncate text-[7px] uppercase tracking-[0.2em] text-[var(--muted)]">verification operations</span>
+          <span className="trust-wordmark block text-[17px] text-[var(--ink)]">CRITERION</span>
+          <span className="evidence-mono mt-1 block truncate text-[7px] uppercase tracking-[0.2em] text-[var(--muted)]">qualification operations</span>
         </span>
       </button>
 
@@ -66,10 +66,10 @@ export function Sidebar({ active, onNavigate }: SidebarProps) {
         <div className="workspace-identity">
           <div className="flex items-center justify-between gap-3">
             <span className="micro-label">Workspace</span>
-            <span className="preview-pill">V3</span>
+            <span className="preview-pill">V4</span>
           </div>
           <div className="mt-2 text-[12px] font-black text-[var(--ink)]">Employer operations</div>
-          <div className="mt-1 text-[9px] leading-4 text-[var(--muted)]">Evidence, policy and runtime control plane.</div>
+          <div className="mt-1 text-[9px] leading-4 text-[var(--muted)]">Commit criteria, verify privately, publish only the qualification receipt.</div>
         </div>
       </div>
 
@@ -84,9 +84,9 @@ export function Sidebar({ active, onNavigate }: SidebarProps) {
       <div className="border-t border-[var(--ink)] p-5">
         <div className="flex items-center justify-between gap-2">
           <span className={`mode-badge ${live ? "mode-live" : "mode-demo"}`}>{live ? "Midnight live" : "Demo attested"}</span>
-          <span className="evidence-mono text-[7px] font-bold text-[var(--copper)]">SR/V3</span>
+          <span className="evidence-mono text-[7px] font-bold text-[var(--copper)]">CR/V4</span>
         </div>
-        <p className="mt-3 text-[9px] leading-4 text-[var(--muted)]">Proof Integrity v1 is upstream. V3 expands the product surface without weakening privacy semantics.</p>
+        <p className="mt-3 text-[9px] leading-4 text-[var(--muted)]">Commit-Before-Know is network verified on Midnight Preprod. Failed predicates leave no public holder-specific rejection receipt.</p>
         <div className="mt-4 h-[3px] bg-gradient-to-r from-[var(--mineral)] via-[var(--verify)] to-[var(--copper)]" />
       </div>
     </aside>
