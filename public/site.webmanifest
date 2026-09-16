@@ -1,7 +1,7 @@
 {
-  "name": "ShieldRate",
-  "short_name": "ShieldRate",
-  "description": "Private verification as a trust instrument.",
+  "name": "Criterion",
+  "short_name": "Criterion",
+  "description": "Commit criteria first. Prove qualification privately.",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#d8dfd2",
