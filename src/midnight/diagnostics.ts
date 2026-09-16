@@ -1,5 +1,6 @@
 import {
   createCircuitContext,
+  createConstructorContext,
   type ContractAddress,
 } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
 import * as ShieldRateGenerated from "../../.compact-build/shieldrate/contract/index.js";
@@ -18,6 +19,65 @@ const fromHex = (value: string): Uint8Array => {
 const hash32 = async (value: string): Promise<Uint8Array> => {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return new Uint8Array(digest);
+};
+
+const BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+
+const decodeBech32mPayload = (value: string): Uint8Array => {
+  const normalized = value.toLowerCase();
+  if (value !== normalized && value !== value.toUpperCase()) {
+    throw new Error("Mixed-case Bech32m coin public key is invalid.");
+  }
+
+  const separator = normalized.lastIndexOf("1");
+  if (separator <= 0 || separator + 7 > normalized.length) {
+    throw new Error("Malformed Bech32m coin public key.");
+  }
+
+  const hrp = normalized.slice(0, separator);
+  if (!hrp.startsWith("mn_shield-cpk")) {
+    throw new Error(`Unexpected Midnight coin public key prefix: ${hrp}`);
+  }
+
+  const words = Array.from(normalized.slice(separator + 1), (char) => {
+    const index = BECH32_CHARSET.indexOf(char);
+    if (index < 0) throw new Error(`Invalid Bech32m character '${char}'.`);
+    return index;
+  });
+
+  // Last six words are the Bech32m checksum. The wallet already validates the
+  // connector payload; for diagnostics we only need the encoded 32-byte key.
+  const payloadWords = words.slice(0, -6);
+  const output: number[] = [];
+  let accumulator = 0;
+  let bits = 0;
+  const maxAccumulator = (1 << 12) - 1;
+
+  for (const word of payloadWords) {
+    accumulator = ((accumulator << 5) | word) & maxAccumulator;
+    bits += 5;
+    while (bits >= 8) {
+      bits -= 8;
+      output.push((accumulator >> bits) & 0xff);
+    }
+  }
+
+  if (bits >= 5 || ((accumulator << (8 - bits)) & 0xff) !== 0) {
+    throw new Error("Non-canonical Bech32m coin public key payload.");
+  }
+
+  const decoded = new Uint8Array(output);
+  if (decoded.length !== 32) {
+    throw new Error(`Expected a 32-byte coin public key, decoded ${decoded.length} bytes.`);
+  }
+  return decoded;
+};
+
+const normalizeCoinPublicKey = (value: string): string => {
+  const cleaned = value.replace(/^0x/, "");
+  if (/^[0-9a-fA-F]{64}$/.test(cleaned)) return cleaned.toLowerCase();
+  if (value.toLowerCase().startsWith("mn_shield-cpk")) return hex(decodeBech32mPayload(value));
+  throw new Error("Unsupported Midnight coin public key encoding.");
 };
 
 const loadLedger = async (contractAddress: string) => {
@@ -137,17 +197,19 @@ export async function preflightCurrentEmployerJobScope(
   }
   const reference = ledger.workRequests.lookup(referenceWorkRequestId);
 
-  // Run the already-deployed contract's exported callerPkh() circuit locally.
-  // This mirrors the identity material MidnightJS supplies to a call without
-  // balancing, signing, proving, or submitting any transaction.
+  // Construct exactly the low-level Compact context shape callerPkh() needs,
+  // but never balance, prove, sign, or submit a transaction.
+  const privateState = createShieldRatePrivateState();
   const contract = new ShieldRateGenerated.Contract(witnesses);
+  const coinPublicKeyHex = normalizeCoinPublicKey(wallet.shieldedCoinPublicKey);
+  const initial = contract.initialState(createConstructorContext(privateState, coinPublicKeyHex));
   const context = createCircuitContext(
     contractAddress as ContractAddress,
-    wallet.shieldedCoinPublicKey,
-    state as any,
-    createShieldRatePrivateState(),
+    initial.currentZswapLocalState,
+    state.data,
+    privateState,
   );
-  const currentEmployerPkh = contract.impureCircuits.callerPkh(context as any).result;
+  const currentEmployerPkh = contract.impureCircuits.callerPkh(context).result;
 
   const jobScope = await hash32(`shieldrate:job:v1|${jobId}`);
   const currentJobKey = ShieldRateGenerated.pureCircuits.deriveJobKey(currentEmployerPkh, jobScope);
