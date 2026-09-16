@@ -1,4 +1,4 @@
-﻿import * as crypto from "node:crypto";
+import * as crypto from "node:crypto";
 import { ecMulGenerator } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
 import { pureCircuits } from "../.compact-build/shieldrate/contract/index.js";
 
