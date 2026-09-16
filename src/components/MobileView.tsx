@@ -33,7 +33,7 @@ export function MobileView({ onBack }: MobileViewProps) {
               <div className="security-band h-[34px]" />
               <div className="px-5 pb-6 pt-5">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2"><BrandMark compact /><div><div className="micro-label">ShieldRate holder</div><div className="mt-1 text-[14px] font-black tracking-[-.03em] text-[var(--ink)]">Credential pass</div></div></div>
+                  <div className="flex items-center gap-2"><BrandMark compact /><div><div className="micro-label">Criterion holder</div><div className="mt-1 text-[14px] font-black tracking-[-.03em] text-[var(--ink)]">Credential pass</div></div></div>
                   <span className="mode-badge mode-demo">Demo</span>
                 </div>
 
