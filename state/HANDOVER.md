@@ -2,69 +2,72 @@
 
 Resume from `Faadil1/shieldrate` on `winning-intelligence-v4`.
 
-Canonical state: `WINNING_INTELLIGENCE_V4 / V4_COMMIT_INDEXED_PRIVATE_QUALIFICATION_PENDING`.
+Canonical state: `WINNING_INTELLIGENCE_V4 / V4_CREDENTIAL_BLOCKTIME_RECOVERY_PROVIDER2_PENDING`.
 
-## Product thesis
-
-**Prove you qualify for the work. Do not reveal why.**
-
-Signature flow:
-
-`COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`
-
-## Live Preprod contract — do not redeploy
+## Live contract — do not redeploy
 
 `c67fcd95e1620693817a1248bceda34e507d39416a7e9c3038ad89f9844513d2`
 
-Keep using the same browser origin/session whenever possible because holder/admin private state is session-scoped.
+Keep the same browser origin/session whenever possible because holder/admin private state is session-scoped.
 
-## Provider gate — CLOSED
+## Provider 1 — indexed
 
-Read-only indexed state confirms provider id `1`, epoch `0`, and exact expected-key match. No further provider-registration transaction is allowed. Successful provider-registration tx/block metadata are still missing; recover later if possible, never invent.
+Provider id `1`, epoch `0`, expected public-key match are confirmed in indexed state. Successful registration tx/block metadata are still missing.
 
-## Commit-Before-Know request — CLOSED / INDEXED
+## Commit-Before-Know — indexed
 
-Fresh canonical job scope:
+Job scope: `sr-wave1-canonical-2026-09-15-01`
 
-`sr-wave1-canonical-2026-09-15-01`
+Policy: `SR-WORK-02` / code `2`
 
-Policy:
+- workRequestId `971f6ab489418b29039ae945a9b197238da5eed6f00c394305cf12366e36892b`
+- tx `003cda886aeecf397418920ee7317c8dc7ee784ae0b4da742438c175451e4bf084`
+- block `2568670`
 
-`SR-WORK-02` / code `2`
+Exact request expiry still needs indexed recovery.
 
-Finalized/indexed work request:
+## Latest blocker — credential issuance time vs Midnight block time
 
-- workRequestId: `971f6ab489418b29039ae945a9b197238da5eed6f00c394305cf12366e36892b`
-- tx id: `003cda886aeecf397418920ee7317c8dc7ee784ae0b4da742438c175451e4bf084`
-- block: `2568670`
+First private qualification attempt failed during local/Compact execution before submission:
 
-The UI only emits this message after `registerWorkRequest()` finalizes and `workRequestExists(workRequestId)` succeeds against indexed ledger state. Therefore the committed standard is now proven to exist before holder proof.
+`Unexpected error executing scoped transaction '<unnamed>': Error: failed assert: credential issuance is in the future`
 
-Still missing from this request evidence: exact `requestExpiresAtMs`. Retrieve it from indexed work-request state before evidence lock rather than deriving it from approximate local time.
+No qualification tx, nullifier, or work receipt was created by that failed attempt.
 
-## Existing credential continuity
+Contract guard: `blockTimeGte(credential.issuedAtEpoch)`.
 
-Do not regenerate issuance. Use the same existing signed credential payload bound to provider id `1`, epoch `0`, and the current holder binding. If the browser credential status is not `Loaded`, re-import the same payload in Card 04.
+Provider-1 credential issuance timestamp is `1789522255905` (`2026-09-16T01:30:55.905Z`), so the Midnight execution block time was behind that timestamp.
 
-## Immediate continuation
+This is not a qualification-policy failure.
 
-1. Confirm Card 06 contains exactly:
-   `971f6ab489418b29039ae945a9b197238da5eed6f00c394305cf12366e36892b`
-2. Confirm credential status is `Loaded`.
-3. Click **Run registered private qualification** exactly once.
-4. Approve the 1AM wallet flow once if prompted.
-5. Capture the full success result: `verification id`, `tx id`, `block height`.
-6. If an error happens after Submit Transaction, do not click the proof button again until indexed receipt state is checked.
-7. Independently verify `workReceiptExists=true` for the exact verification id.
-8. Recover request expiry + provider registration tx/block if possible.
-9. Lock `evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-<date>.md` only after the public evidence bundle is complete.
+## Why provider 1 cannot simply be reissued
+
+The original provider-1 issuer secret was random and intentionally not printed/persisted. Do not fabricate a credential under provider 1, and do not rotate/remove provider 1.
+
+## Immediate recovery
+
+1. Keep the same holder binding/browser session.
+2. Create a **new fixed local issuer secret** and keep it outside Git/chat.
+3. Generate a fresh credential with:
+   - provider id `2`;
+   - provider epoch `0`;
+   - same holder binding;
+   - `SHIELDRATE_ISSUED_AT_EPOCH` explicitly backdated by 24 hours;
+   - existing policy-compatible values (68000 / 487 / 120).
+4. Register provider `2` exactly once, then confirm indexed key + epoch `0`.
+5. Import its matching `credentialPayload`.
+6. Retry the current work request if fresh. If expired, use a new job scope such as `sr-wave1-canonical-2026-09-15-02` with policy code `2`; the previous employer/job slot is immutable.
+7. On successful qualification capture verification id + tx + block.
+8. Independently confirm `workReceiptExists=true`.
+9. Lock final network evidence only after public values are checked.
 
 ## Truth boundary
 
 - Deployment READY is proven.
-- Provider state is indexed.
-- Commit-Before-Know request is finalized and indexed at block `2568670`.
-- Full V4 `NETWORK_VERIFIED` is still pending private qualification + independent indexed work receipt.
+- Provider 1 indexed is proven.
+- Commit-Before-Know request finalized/indexed at block `2568670` is proven.
+- The first private proof attempt failed pre-submission on credential time.
+- Full V4 `NETWORK_VERIFIED` still requires successful private proof + independently indexed receipt.
 - Never expose holder/admin/issuer secrets or raw credential data in Git evidence.
 
 ## TRACE gate
