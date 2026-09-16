@@ -10,11 +10,19 @@ interface LandingProps {
 }
 
 const EVIDENCE = [
-  { code: "01", title: "Issuer attested", desc: "Credential facts arrive signed before the proof evaluates them.", accent: "var(--mineral)" },
-  { code: "02", title: "Scoped identity", desc: "Each employer and job receives a different holder pseudonym.", accent: "var(--iris)" },
-  { code: "03", title: "Replay protected", desc: "Challenge, policy and expiry are bound into one request context.", accent: "var(--amber)" },
-  { code: "04", title: "Pass-only", desc: "A failed predicate creates no public negative receipt.", accent: "var(--verify)" },
+  { code: "01", title: "Criteria committed first", desc: "The employer fixes one qualification policy for the job before seeing any holder outcome.", accent: "var(--copper)" },
+  { code: "02", title: "Issuer attested", desc: "Private work facts arrive signed by a registered provider before Compact evaluates them.", accent: "var(--mineral)" },
+  { code: "03", title: "Scoped identity", desc: "The public result uses an opportunity-scoped subject instead of a reusable worker identity.", accent: "var(--iris)" },
+  { code: "04", title: "Pass-only publication", desc: "Qualification produces a receipt. Refusal or failure leaves no holder-specific public rejection trail.", accent: "var(--verify)" },
 ];
+
+const CANONICAL = {
+  contract: "c67fcd95e1620693817a1248bceda34e507d39416a7e9c3038ad89f9844513d2",
+  request: "d7f42cc52438981bcd093e39c4e738004d9ff9b26af7348f4cea8abe690c9ed1",
+  requestBlock: "2575087",
+  verification: "6eef4d8dfd28dcee6dd95502e4baf14b1838525fc8cc6b2b67c94d8c618583b1",
+  qualificationBlock: "2575167",
+};
 
 export function Landing({ wallet, onConnect, onEnter, onMobile }: LandingProps) {
   const live = executionMode() === "midnight-live";
@@ -23,22 +31,22 @@ export function Landing({ wallet, onConnect, onEnter, onMobile }: LandingProps) 
     <div className="app-shell security-field px-3 py-3 md:px-6 md:py-6">
       <div className="paper-panel mx-auto min-h-[calc(100vh-24px)] max-w-[1500px] overflow-hidden rounded-[2px] md:min-h-[calc(100vh-48px)]">
         <nav className="grid min-h-[76px] grid-cols-[1fr_auto] items-center border-b border-[var(--ink)] px-5 md:grid-cols-[1fr_auto_1fr] md:px-8 lg:px-11">
-          <button onClick={onEnter} className="flex items-center gap-3 text-left" aria-label="Open ShieldRate">
+          <button onClick={onEnter} className="flex items-center gap-3 text-left" aria-label="Open SealedFit">
             <BrandMark compact />
             <span>
-              <span className="trust-wordmark block text-[19px] text-[var(--ink)]">SHIELDRATE</span>
-              <span className="evidence-mono mt-0.5 block text-[7px] uppercase tracking-[0.23em] text-[var(--muted)]">private verification bureau</span>
+              <span className="trust-wordmark block text-[19px] text-[var(--ink)]">SEALEDFIT</span>
+              <span className="evidence-mono mt-0.5 block text-[7px] uppercase tracking-[0.23em] text-[var(--muted)]">private qualification protocol</span>
             </span>
           </button>
 
           <div className="hidden items-center border-x border-[var(--rule)] md:flex">
-            <a href="#instrument" className="px-5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--muted)] hover:text-[var(--ink)]">Instrument</a>
+            <a href="#proof" className="px-5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--muted)] hover:text-[var(--ink)]">Live proof</a>
             <a href="#integrity" className="border-l border-[var(--rule)] px-5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--muted)] hover:text-[var(--ink)]">Integrity</a>
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <span className={`mode-badge hidden sm:inline-flex ${live ? "mode-live" : "mode-demo"}`}>{live ? "Midnight live" : "Demo attested"}</span>
-            <button className="btn-primary" onClick={onEnter}>Open bureau</button>
+            <span className="mode-badge mode-live hidden sm:inline-flex">Network verified</span>
+            <button className="btn-primary" onClick={onEnter}>Open protocol</button>
           </div>
         </nav>
 
@@ -48,44 +56,52 @@ export function Landing({ wallet, onConnect, onEnter, onMobile }: LandingProps) 
               <div className="pointer-events-none absolute -left-20 top-24 h-[360px] w-[360px] rounded-full border border-[rgba(43,97,113,.10)]" />
               <div className="pointer-events-none absolute -left-11 top-32 h-[290px] w-[290px] rounded-full border border-[rgba(43,97,113,.10)]" />
               <div className="relative z-10">
-                <div className="flex items-center gap-3">
-                  <span className="micro-label">SR / TRUST INSTRUMENT 02</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="micro-label">SF / COMMIT-BEFORE-KNOW</span>
                   <span className="h-px w-12 bg-[var(--copper)]" />
-                  <span className="evidence-mono text-[8px] font-bold uppercase tracking-[0.17em] text-[var(--copper)]">Proof integrity</span>
+                  <span className="evidence-mono text-[8px] font-bold uppercase tracking-[0.17em] text-[var(--verify)]">Midnight Preprod · verified</span>
                 </div>
 
                 <h1 className="display-serif mt-7 max-w-[760px] text-[52px] leading-[0.91] text-[var(--ink)] sm:text-[68px] lg:text-[82px] xl:text-[88px]">
-                  Prove the policy.
+                  Prove you qualify.
                   <br />
-                  <span className="text-[var(--mineral)]">Keep the evidence</span>
+                  <span className="text-[var(--mineral)]">Reveal nothing</span>
                   <br />
-                  private.
+                  you do not owe.
                 </h1>
 
-                <p className="mt-7 max-w-[630px] text-[16px] leading-7 text-[var(--ink-soft)]">
-                  ShieldRate turns issuer-attested work credentials into scoped proof receipts. The employer receives a trustworthy answer; the underlying income, reputation and work history remain holder-side evidence.
+                <p className="mt-7 max-w-[650px] text-[16px] leading-7 text-[var(--ink-soft)]">
+                  SealedFit makes the employer commit the qualification standard before the worker proves anything. The public outcome is a scoped <strong>QUALIFIED</strong> receipt; the underlying income, rating and work history stay private.
                 </p>
 
                 <div className="mt-9 flex flex-wrap gap-3">
                   {wallet.connected ? (
-                    <button className="btn-primary" onClick={onEnter}>Enter verification bureau <span aria-hidden>→</span></button>
+                    <button className="btn-primary" onClick={onEnter}>Open live proof <span aria-hidden>→</span></button>
                   ) : (
-                    <button className="btn-primary" onClick={onConnect}>{live ? "Connect Lace" : "Enter demo bureau"} <span aria-hidden>→</span></button>
+                    <button className="btn-primary" onClick={onConnect}>{live ? "Connect wallet" : "Open protocol"} <span aria-hidden>→</span></button>
                   )}
-                  <button className="btn-secondary" onClick={onMobile}>Inspect holder dossier</button>
+                  <button className="btn-secondary" onClick={onMobile}>See holder boundary</button>
+                </div>
+
+                <div className="mt-8 grid max-w-[690px] grid-cols-1 border-y border-[var(--ink)] sm:grid-cols-3">
+                  <Boundary tone="requested" label="Commit" value="Block 2,575,087" note="policy fixed first" />
+                  <Boundary tone="proven" label="Qualified" value="Block 2,575,167" note="indexed receipt" />
+                  <Boundary tone="hidden" label="Hidden" value="Raw work data" note="never published" last />
                 </div>
               </div>
 
-              <div className="relative z-10 mt-14 grid grid-cols-1 border-y border-[var(--ink)] sm:grid-cols-3">
-                <Boundary tone="requested" label="Requested" value="Income ≥ $50k" note="standard band" />
-                <Boundary tone="proven" label="Proven" value="Policy passed" note="shareable receipt" />
-                <Boundary tone="hidden" label="Hidden" value="Raw income" note="never published" last />
+              <div className="relative z-10 mt-10 grid gap-3 border-t border-[var(--rule)] pt-5 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div>
+                  <div className="micro-label">Canonical run</div>
+                  <div className="evidence-mono mt-1.5 break-all text-[8px] font-semibold text-[var(--muted)]">CONTRACT {CANONICAL.contract}</div>
+                </div>
+                <span className="mode-badge mode-live">NETWORK_VERIFIED</span>
               </div>
             </div>
 
-            <div id="instrument" className="guilloche relative flex items-center justify-center overflow-hidden px-5 py-12 md:px-10 xl:py-16">
+            <div id="proof" className="guilloche relative flex items-center justify-center overflow-hidden px-5 py-12 md:px-10 xl:py-16">
               <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-12 border-r border-[rgba(16,44,49,.18)] bg-[rgba(43,97,113,.055)] xl:block">
-                <div className="receipt-serial evidence-mono absolute bottom-8 left-[16px] text-[7px] font-bold uppercase text-[rgba(16,44,49,.38)]">SR · ISSUER ATTESTED · CONTEXT SCOPED · PASS ONLY</div>
+                <div className="receipt-serial evidence-mono absolute bottom-8 left-[16px] text-[7px] font-bold uppercase text-[rgba(16,44,49,.38)]">SF · COMMITTED FIRST · PRIVATE PROOF · INDEXED RECEIPT</div>
               </div>
 
               <div className="proof-instrument-v2 receipt-hover cut-corner w-full max-w-[570px]" tabIndex={0}>
@@ -96,49 +112,49 @@ export function Landing({ wallet, onConnect, onEnter, onMobile }: LandingProps) 
                       <div className="flex items-center gap-3">
                         <BrandMark compact />
                         <div>
-                          <div className="micro-label">Private verification receipt</div>
-                          <div className="evidence-mono mt-1.5 text-[9px] font-semibold text-[var(--muted)]">SR-CANON-0001 / PREVIEW</div>
+                          <div className="micro-label">Canonical qualification receipt</div>
+                          <div className="evidence-mono mt-1.5 text-[9px] font-semibold text-[var(--muted)]">PREPROD / BLOCK {CANONICAL.qualificationBlock}</div>
                         </div>
                       </div>
-                      <span className={`mode-badge ${live ? "mode-live" : "mode-demo"}`}>{live ? "Midnight live" : "Demo attested"}</span>
+                      <span className="mode-badge mode-live">Network verified</span>
                     </div>
 
                     <div className="grid gap-6 py-8 md:grid-cols-[1fr_auto] md:items-center">
                       <div>
-                        <div className="micro-label">Requested claim</div>
-                        <div className="display-serif mt-2 text-[43px] leading-[.94] text-[var(--ink)]">Income policy<br />≥ $50,000</div>
+                        <div className="micro-label">Committed standard</div>
+                        <div className="display-serif mt-2 text-[43px] leading-[.94] text-[var(--ink)]">SR-WORK-02<br />Proven professional</div>
                         <div className="mt-4 flex flex-wrap gap-2">
-                          <span className="rounded-full border border-[rgba(43,97,113,.35)] bg-[var(--mineral-bg)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[.1em] text-[var(--mineral)]">Employer scoped</span>
-                          <span className="rounded-full border border-[rgba(105,91,120,.35)] bg-[var(--iris-bg)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[.1em] text-[var(--iris)]">Raw value hidden</span>
+                          <span className="rounded-full border border-[rgba(43,97,113,.35)] bg-[var(--mineral-bg)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[.1em] text-[var(--mineral)]">Committed before proof</span>
+                          <span className="rounded-full border border-[rgba(105,91,120,.35)] bg-[var(--iris-bg)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[.1em] text-[var(--iris)]">Private evidence hidden</span>
                         </div>
                       </div>
-                      <div className="verify-seal">Passed</div>
+                      <div className="verify-seal">Qualified</div>
                     </div>
 
                     <div className="grid grid-cols-1 border-y border-[var(--ink)] sm:grid-cols-2">
-                      <DataCell label="Issuer" value="Registered provider" />
-                      <DataCell label="Scope" value="Employer + role + challenge" lastCol />
-                      <DataCell label="Subject" value="Context pseudonym" />
-                      <DataCell label="Publication" value="Pass-only receipt" lastCol />
+                      <DataCell label="Employer" value="Wallet-scoped" />
+                      <DataCell label="Provider" value="Provider 2 · epoch 0" lastCol />
+                      <DataCell label="Commit block" value={CANONICAL.requestBlock} />
+                      <DataCell label="Qualification block" value={CANONICAL.qualificationBlock} lastCol />
                     </div>
 
                     <div className="mt-5 grid grid-cols-[1fr_auto] items-stretch gap-3">
                       <div className="redacted-field p-4">
                         <div className="micro-label text-[var(--iris)]">Private evidence field</div>
-                        <div className="evidence-mono mt-2 text-[9px] font-bold uppercase tracking-[.16em] text-[var(--iris)]">RAW VALUE / REDACTED BY DESIGN</div>
+                        <div className="evidence-mono mt-2 text-[9px] font-bold uppercase tracking-[.16em] text-[var(--iris)]">INCOME / RATING / WORK HISTORY · NOT PUBLISHED</div>
                       </div>
                       <div className="seal-copper grid min-w-[92px] place-items-center border px-3 text-center">
                         <div>
                           <div className="evidence-mono text-[8px] font-bold uppercase tracking-[.12em]">Receipt</div>
-                          <div className="mt-1 text-[11px] font-black">VALID</div>
+                          <div className="mt-1 text-[11px] font-black">INDEXED</div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-6 grid grid-cols-3 gap-3 border-t border-[var(--ink)] pt-5">
-                      <Meta label="Request" value="…A7D91C" />
-                      <Meta label="Nullifier" value="…204E6B" />
-                      <Meta label="Fresh until" value="31 DEC 2026" />
+                    <div className="mt-6 grid grid-cols-1 gap-3 border-t border-[var(--ink)] pt-5 sm:grid-cols-3">
+                      <Meta label="Request" value={`${CANONICAL.request.slice(0, 7)}…${CANONICAL.request.slice(-5)}`} />
+                      <Meta label="Verification" value={`${CANONICAL.verification.slice(0, 7)}…${CANONICAL.verification.slice(-5)}`} />
+                      <Meta label="State" value="workReceipts=true" />
                     </div>
                   </div>
                 </div>
@@ -159,12 +175,10 @@ export function Landing({ wallet, onConnect, onEnter, onMobile }: LandingProps) 
             ))}
           </section>
 
-          <section className={`grid gap-4 px-6 py-5 text-[10px] md:grid-cols-[160px_1fr] md:px-10 ${live ? "bg-[var(--verify-bg)]" : "bg-[var(--amber-bg)]"}`}>
+          <section className="grid gap-4 bg-[var(--verify-bg)] px-6 py-5 text-[10px] md:grid-cols-[160px_1fr] md:px-10">
             <span className="font-black uppercase tracking-[0.14em] text-[var(--ink)]">Trust boundary</span>
             <span className="leading-5 text-[var(--ink-soft)]">
-              {live
-                ? "Verified means transaction finalized + expected receipt independently found in indexed Midnight contract state. Submission alone is never enough."
-                : "DEMO_ATTESTED is explicit. This build demonstrates the integrity model and never invents a Midnight transaction, block or network confirmation."}
+              Canonical Preprod run: employer policy finalized at block {CANONICAL.requestBlock} → private qualification finalized at block {CANONICAL.qualificationBlock} → expected verification id independently found in indexed <code>workReceipts</code>. Transaction submission alone is never treated as proof.
             </span>
           </section>
         </main>
