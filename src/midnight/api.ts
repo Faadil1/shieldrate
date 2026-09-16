@@ -1,6 +1,6 @@
-import { deployContract, findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
+import { createUnprovenCallTx, deployContract, findDeployedContract, submitTxAsync } from "@midnight-ntwrk/midnight-js-contracts";
 import type { ContractAddress, JubjubPoint } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
-import type { FinalizedTxData } from "@midnight-ntwrk/midnight-js-types";
+import { SucceedEntirely, type FinalizedTxData } from "@midnight-ntwrk/midnight-js-types";
 import * as ShieldRateContract from "../../.compact-build/shieldrate/contract/index.js";
 import { CompiledShieldRateContract } from "./contract";
 import { shieldRatePrivateStateKey, type DeployedShieldRateContract, type ShieldRateProviders } from "./types";
@@ -77,6 +77,25 @@ type ShieldRateCallTx = {
   ): Promise<{ public: FinalizedTxData }>;
   verifyRegisteredWorkPolicy(workRequestId: Uint8Array): Promise<{ public: FinalizedTxData }>;
 };
+
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const withTimeout = async <T>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+};
+
+const bytesEqual = (a: Uint8Array, b: Uint8Array): boolean =>
+  a.length === b.length && a.every((value, index) => value === b[index]);
 
 export class ShieldRateAPI {
   private constructor(readonly deployedContract: DeployedShieldRateContract, readonly providers: ShieldRateProviders) {
@@ -164,19 +183,81 @@ export class ShieldRateAPI {
       request.requestNonce,
       request.requestExpiresAtEpoch,
     );
-    const tx = await this.callTx.registerWorkRequest(
-      request.jobScope,
-      request.policyCode,
-      request.challenge,
-      request.requestNonce,
-      request.requestExpiresAtEpoch,
-    );
-    const exists = await this.workRequestExists(workRequestId);
-    if (!exists) throw new Error("Work request transaction finalized but request was not found in indexed ledger state.");
+
+    // MidnightJS 4.1.1's callTx wrapper executes through Transaction.scoped().
+    // In the browser this path can surface a false duplicate-job assertion even
+    // when a fresh queryZSwapAndContractState() snapshot and a direct
+    // createUnprovenCallTx() both show the job key as OPEN. Build this one call
+    // explicitly, then prove/balance/submit once and reconcile against indexed
+    // ledger state. No contract or circuit semantics are changed.
+    const unproven = await createUnprovenCallTx(this.providers as any, {
+      compiledContract: CompiledShieldRateContract,
+      contractAddress: this.contractAddress,
+      circuitId: "registerWorkRequest" as any,
+      privateStateId: shieldRatePrivateStateKey,
+      args: [
+        request.jobScope,
+        request.policyCode,
+        request.challenge,
+        request.requestNonce,
+        request.requestExpiresAtEpoch,
+      ] as any,
+    } as any);
+
+    const circuitResult = unproven.private.result as Uint8Array;
+    if (!(circuitResult instanceof Uint8Array) || !bytesEqual(circuitResult, workRequestId)) {
+      throw new Error("Prepared work-request circuit returned an unexpected work request id. Nothing was submitted.");
+    }
+
+    const txId = String(await submitTxAsync(this.providers as any, {
+      unprovenTx: unproven.private.unprovenTx,
+      circuitId: "registerWorkRequest" as any,
+    }));
+
+    let finalized: FinalizedTxData | null = null;
+    try {
+      finalized = await withTimeout(
+        this.providers.publicDataProvider.watchForTxData(txId as any),
+        60_000,
+        "Work request submission is still waiting for transaction finalization.",
+      ) as FinalizedTxData;
+    } catch {
+      // Reconcile below against indexed contract state before deciding whether a
+      // retry is safe. A submitted transaction is never automatically repeated.
+    }
+
+    const deadline = Date.now() + 60_000;
+    let exists = await this.workRequestExists(workRequestId);
+    while (!exists && Date.now() < deadline) {
+      await delay(2_000);
+      exists = await this.workRequestExists(workRequestId);
+    }
+
+    if (!exists) {
+      throw new Error(
+        `Work request tx ${txId} was submitted but the expected request is not indexed yet. ` +
+        `Do not retry. Reconcile this tx/request before creating another commit.`,
+      );
+    }
+
+    if (!finalized) {
+      finalized = await withTimeout(
+        this.providers.publicDataProvider.watchForTxData(txId as any),
+        15_000,
+        `Work request ${workRequestId} is indexed, but tx metadata for ${txId} is not available yet. Do not retry.`,
+      ) as FinalizedTxData;
+    }
+
+    if (finalized.status !== SucceedEntirely) {
+      throw new Error(`Work request tx ${txId} finalized with status ${String(finalized.status)}. Do not retry automatically.`);
+    }
+
+    await this.providers.privateStateProvider.set(shieldRatePrivateStateKey, unproven.private.nextPrivateState);
+
     return {
       workRequestId,
-      txId: String(tx.public.txId),
-      blockHeight: tx.public.blockHeight,
+      txId,
+      blockHeight: finalized.blockHeight,
       contractAddress: this.contractAddress,
     };
   }
