@@ -68,12 +68,12 @@ export function LiveSetupPanel() {
         <div className="flex items-start gap-4">
           <BrandMark />
           <div>
-            <div className="micro-label">Midnight live / V4 operator dossier</div>
+            <div className="micro-label">Criterion / Midnight live / V4 operator dossier</div>
             <h2 className="display-serif mt-2 text-[42px] leading-[.94] text-[var(--ink)]">Commit criteria. Then prove privately.</h2>
             <p className="mt-3 max-w-[780px] text-[10px] leading-5 text-[var(--muted)]">Commit-Before-Know fixes the employer's policy before a holder proves anything. Holder/admin secrets remain session-only. Never paste an issuer private key or wallet seed here.</p>
           </div>
         </div>
-        <span className="mode-badge mode-live">Live path / V4</span>
+        <span className="mode-badge mode-live">Network verified / V4</span>
       </header>
 
       <section className="mb-6 grid border-y border-[var(--ink)] md:grid-cols-3">
@@ -83,7 +83,7 @@ export function LiveSetupPanel() {
       </section>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <SetupCard code="01" title="Contract registry" subtitle="Deploy or join the canonical ShieldRate contract." tone="mineral">
+        <SetupCard code="01" title="Contract registry" subtitle="Deploy or join the canonical Criterion contract." tone="mineral">
           <div className="micro-label">Current contract</div>
           <div className="evidence-mono mt-2 min-h-[44px] break-all text-[9px] leading-4 text-[var(--ink-soft)]">{snapshot.contractAddress ?? "NOT JOINED"}</div>
           <button className="btn-primary mt-4 w-full" disabled={busy} onClick={() => void run(async () => {
@@ -93,8 +93,8 @@ export function LiveSetupPanel() {
             });
             setContractInput(address);
             return `READY · Contract deployed and indexed: ${address}`;
-          })}>{busy ? "Working…" : "Deploy ShieldRate contract"}</button>
-          <p className="mt-2 text-[8px] leading-4 text-[var(--muted)]">One click submits at most once. If Preprod indexing is slow, ShieldRate preserves the submitted contract and recovers it instead of redeploying.</p>
+          })}>{busy ? "Working…" : "Deploy Criterion contract"}</button>
+          <p className="mt-2 text-[8px] leading-4 text-[var(--muted)]">One click submits at most once. If Preprod indexing is slow, Criterion preserves the submitted contract and recovers it instead of redeploying.</p>
           <div className="mt-4 border-t border-[var(--rule)] pt-4">
             <input className="field evidence-mono text-[9px]" placeholder="Existing contract address" value={contractInput} onChange={(event) => setContractInput(event.target.value.trim())} />
             <button className="btn-secondary mt-2 w-full" disabled={busy || !contractInput} onClick={() => void run(async () => {
@@ -131,7 +131,7 @@ export function LiveSetupPanel() {
             }
             return `Provider registered in tx ${result.txId} at block ${result.blockHeight} · indexed epoch ${result.status.epoch ?? "unknown"}.`;
           })}>Register provider on-chain</button>
-          <p className="mt-2 text-[8px] leading-4 text-[var(--muted)]">After any Submit Transaction error or timeout, use Check provider on-chain first. ShieldRate never automatically resubmits an ambiguous provider registration.</p>
+          <p className="mt-2 text-[8px] leading-4 text-[var(--muted)]">After any Submit Transaction error or timeout, use Check provider on-chain first. Criterion never automatically resubmits an ambiguous provider registration.</p>
         </SetupCard>
 
         <SetupCard code="04" title="Credential import" subtitle="Signed payload only — never issuer secret." tone="verify">
@@ -189,7 +189,7 @@ export function LiveSetupPanel() {
 
       <section className="mt-6 grid grid-cols-[6px_1fr] border border-[rgba(31,114,91,.4)] bg-[var(--verify-bg)]/75">
         <div className="bg-[var(--verify)]" />
-        <div className="px-5 py-4"><div className="micro-label !text-[var(--verify)]">V4 live gate rule</div><p className="mt-2 text-[10px] leading-5 text-[var(--ink-soft)]">A submitted transaction is never enough. ShieldRate marks qualification verified only after finalization and independent indexed-ledger confirmation of the expected `workReceipts` id.</p></div>
+        <div className="px-5 py-4"><div className="micro-label !text-[var(--verify)]">V4 live gate rule</div><p className="mt-2 text-[10px] leading-5 text-[var(--ink-soft)]">A submitted transaction is never enough. Criterion marks qualification verified only after finalization and independent indexed-ledger confirmation of the expected `workReceipts` id.</p></div>
       </section>
 
       {message && <div className="evidence-mono mt-4 break-all border border-[var(--verify)] bg-[var(--verify-bg)] p-4 text-[9px] leading-5 text-[var(--verify)]">{message}</div>}
