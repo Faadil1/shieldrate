@@ -1,8 +1,12 @@
-# ShieldRate — Handover
+# Criterion — Handover
 
 Resume from `Faadil1/shieldrate` on `winning-intelligence-v4`.
 
-Canonical state: `WINNING_INTELLIGENCE_V4 / V4_NETWORK_VERIFIED`.
+Canonical state: `WINNING_INTELLIGENCE_V4 / V4_NETWORK_VERIFIED / JUDGE_PACKAGING`.
+
+Public product name: **Criterion**.
+
+Technical continuity: keep the repository, deployed Compact contract and internal `shieldrate` / `SR-*` namespace unchanged through submission. The public UI/docs use Criterion; the technical namespace remains historical evidence continuity.
 
 ## Live contract
 
@@ -65,7 +69,7 @@ Commit evidence:
 - tx `00aedb486f5ab66543f4c16bd90232566d6598bcde2829676ac4e782d098b1d836`
 - block `2575167`
 
-The app only returned `QUALIFIED` after independently finding the expected verification id in indexed `workReceipts`, so `workReceiptExists=true` is already satisfied for this exact run.
+The app only returned `QUALIFIED` after independently finding the expected verification id in indexed `workReceipts`, so `workReceiptExists=true` is satisfied for this exact run.
 
 ## Evidence
 
@@ -75,13 +79,21 @@ Public evidence bundle:
 Core verified chain:
 `provider 2 indexed → employer policy committed → private qualification → indexed receipt`
 
+## Judge-facing state
+
+Public brand and judge-facing surfaces now use **Criterion**. The landing page shows canonical network evidence above the fold, and `README.md`, `docs/JUDGE-REVIEW.md`, and `docs/DEMO-90S.md` have been promoted from evidence-pending copy to the actual network-verified state.
+
+Recording rule: use the existing canonical run as evidence. Do not recreate transactions for the video.
+
 ## Safety / no-repeat rules
 
 - Never deploy another contract.
 - Never re-register provider 2.
 - Never recommit `sr-wave1-canonical-2026-09-15-03`.
+- Do not run another qualification merely for the video.
 - Do not publish raw credential contents or issuer/holder/admin secret material.
 - Preserve exact tx/block/request/verification ids above as canonical evidence.
+- Do not rename the GitHub repository or internal contract namespace before submission; public branding is already Criterion without risking routing or evidence continuity.
 
 ## Truth boundary
 
@@ -91,4 +103,4 @@ This does not claim generalized production readiness. A separate future hardenin
 
 ## Immediate continuation
 
-Do not reopen the network proof flow. Continue with judge-facing evidence packaging, README/demo narrative, TRACE/UI polish, and optional authorization hardening.
+Wait for the latest judge-facing UI build to be green, refresh the public Pages deployment, then record the 90-second video from `docs/DEMO-90S.md`. After recording, finish submission copy/package without touching the canonical network proof flow.
