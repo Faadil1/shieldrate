@@ -256,7 +256,10 @@ export const connectMidnightRuntime = async (): Promise<MidnightRuntimeSnapshot>
 };
 
 const ensureProviders = async (): Promise<ShieldRateProviders> => {
-  if (providers) return providers;
+  if (providers) {
+    if (!api) await restoreKnownContract(providers);
+    return providers;
+  }
   if (!walletConnection) await connectMidnightRuntime();
   if (!walletConnection) throw new Error("Midnight wallet connection was not initialized.");
 
