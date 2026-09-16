@@ -1,55 +1,52 @@
-# Security Policy
+# Criterion Security Policy
 
-ShieldRate is a zero-knowledge reputation and income verification protocol.
-Because the entire product premise is **privacy and trust**, security matters
-doubly. Please report issues responsibly.
+Criterion is a private work-qualification protocol. Its core security requirement is simple: private holder evidence must not become public merely because a verifier needs a qualification decision.
 
-## Supported Versions
+## Reporting a vulnerability
 
-| Version | Supported          |
-| ------- | ------------------ |
-| main    | :white_check_mark: |
+Do **not** open a public issue for a security vulnerability.
 
-Pre-releases and hackathon builds are supported only on the `main` branch.
+Use GitHub Security Advisories / **Report a vulnerability** on this repository. Include reproduction steps, affected component, impact, and a suggested mitigation when available.
 
-## Reporting a Vulnerability
+## Security-relevant areas
 
-**Do not open a public GitHub issue for security vulnerabilities.**
+| Area | Why it matters |
+|---|---|
+| `contracts/shieldrate.compact` | provider verification, immutable work requests, time checks, scoped identity/nullifiers, pass-only receipts |
+| `contracts/schnorr.compact` | issuer signature verification |
+| `src/midnight/privateStateProvider.ts` | browser private witness state |
+| `src/midnight/api.ts` / `runtime.ts` | transaction lifecycle and indexed receipt reconciliation |
+| `src/security/integrity.ts` | local integrity boundaries and proof metadata |
+| `scripts/issue-demo-credential.mjs` | local/test credential issuance; issuer secret must remain outside Git |
 
-Instead, report privately via one of:
+## Secret handling
 
-- GitHub **Security Advisories**: use the "Report a vulnerability" button on
-  the repository's *Security* tab.
-- Private email to the maintainers (address listed in the repository profile).
+Never commit or publish:
 
-Include, where possible:
+- wallet seed phrases or private keys;
+- issuer secret keys;
+- holder/admin secrets;
+- raw production credentials;
+- `.env` or local secret files.
 
-1. A description of the vulnerability and its impact.
-2. Steps to reproduce or a proof-of-concept.
-3. Affected component or file (e.g. `contracts/shieldrate.compact`,
-   `src/utils/crypto.ts`, wallet wiring).
-4. Suggested mitigation, if you have one.
+The canonical public Preprod evidence intentionally contains transaction identifiers, blocks, request/verification ids, and public receipt state only.
 
-### What happens next
+## Protocol invariants
 
-- We will acknowledge your report within **72 hours**.
-- We will investigate, triage, and aim to ship a fix (or a documented
-  mitigation) within a reasonable window depending on severity.
-- We will not disclose the issue publicly until a fix has landed.
+- One qualification standard is fixed per employer + job scope.
+- Cancelling a request does not reopen that slot for a replacement standard.
+- Credential issuance cannot be in the future.
+- Credential validity must cover the request validity window.
+- Failed private qualification aborts before public receipt insertion.
+- Opportunity-scoped nullifiers prevent duplicate successful publication for the same holder/opportunity.
+- The live UI reports `QUALIFIED` only after the expected receipt is confirmed in indexed state.
 
-## Security-relevant areas in this repo
+## Current authorization boundary
 
-| Area                    | Why it matters                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| `contracts/shieldrate.compact` | Dual-ledger separation; only booleans/hashes must ever be disclosed.   |
-| `src/utils/crypto.ts`   | Custom synchronous SHA-256 — verify against official test vectors before use in production. |
-| `src/hooks/useWallet.ts`| Wallet bridging. Your seed/keys must never be exposed or logged.               |
-| `src/utils/proofGenerator.ts` | Private witnesses must stay on-device; never log raw income/rating.     |
+The deployed Preprod contract derives employer scope from the Midnight public-key context exposed through `ownPublicKey()`. This is sufficient for the bounded canonical demonstration, but Criterion does **not** claim it as the final production authentication model.
 
-## General guidance
+A production authorization design should move identity-sensitive authorization to a stronger secret-witness-derived scheme.
 
-- Never commit secrets, private keys, mnemonic phrases, or deployer wallets.
-- Treat all demo/mock flows as non-production; wire real MidnightJS SDK calls
-  behind the provided hooks before any real mainnet use.
-- Raw freelancer data (income, ratings, job counts) must never leave the
-  prover's device — only disclosed booleans are ever sent to the ledger.
+## Network scope
+
+The canonical evidence is Midnight **Preprod** evidence. Mainnet production readiness is not claimed.

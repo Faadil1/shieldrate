@@ -1,10 +1,10 @@
-# Private Work Qualification — V4
+# Criterion — Private Work Qualification
 
 ## Product thesis
 
 > **Prove you qualify for the work. Do not reveal why.**
 
-ShieldRate combines two guarantees:
+Criterion combines two guarantees:
 
 1. the employer fixes the qualification standard before candidate proof;
 2. the worker proves the entire standard without revealing raw work data or component outcomes.
@@ -15,20 +15,20 @@ Canonical flow:
 
 ## Registered request model
 
-`registerWorkRequest(...)` is an employer-wallet transaction. Compact derives the employer public-key hash with `ownPublicKey()` and binds the request to:
+`registerWorkRequest(...)` binds a request to:
 
-- employer public-key hash;
+- employer public-key scope derived from the Compact context;
 - job scope;
 - fixed policy code;
 - challenge;
 - request nonce;
 - expiry.
 
-`jobRequests` allows only one request for that employer + job scope. Cancellation marks the request closed but deliberately does not remove the job key, so the employer cannot cancel and silently replace the standard.
+`jobRequests` allows only one request for that employer + job scope. Cancellation marks the request closed but deliberately does not remove the job key, so the standard cannot be silently replaced under the same protocol scope.
 
 ## Qualification model
 
-`verifyRegisteredWorkPolicy(workRequestId)` does not accept a new policy or employer id from the prover. It loads the already-registered request and checks:
+`verifyRegisteredWorkPolicy(workRequestId)` does not accept a new policy from the prover. It loads the already-registered request and checks:
 
 1. request exists;
 2. request is not cancelled;
@@ -36,7 +36,7 @@ Canonical flow:
 4. provider is registered and credential epoch is current;
 5. credential issuance is not in the future;
 6. credential remains valid through request expiry;
-7. provider Schnorr signature binds the private credential to the holder;
+7. provider Schnorr signature binds the private credential;
 8. all private conditions for the registered policy are satisfied;
 9. opportunity nullifier has not been consumed;
 10. one positive work receipt is inserted.
@@ -45,21 +45,9 @@ A failing condition aborts before public receipt insertion.
 
 ## Opportunity-scoped privacy budget
 
-The work nullifier is derived from:
+The work nullifier is derived from holder secret + employer scope + job scope. It intentionally excludes policy code, challenge and expiry.
 
-- holder secret;
-- authenticated employer public-key hash;
-- job scope.
-
-It intentionally excludes:
-
-- policy code;
-- challenge;
-- expiry.
-
-Therefore a successful qualification consumes the public qualification slot for that opportunity. The verifier cannot obtain additional successful receipts for the same worker/opportunity by changing policy or challenge.
-
-A failed attempt does not consume a public receipt/nullifier because the circuit aborts before state mutation. This preserves failure privacy and allows the holder to retry the **same committed standard** later if their underlying credential changes.
+A successful qualification consumes the public qualification slot for that opportunity. A failed attempt does not create a public receipt/nullifier because the circuit aborts before state mutation.
 
 ## Wave 1 policies
 
@@ -75,7 +63,7 @@ These are demonstration standards, not universal hiring recommendations.
 
 ### Public request
 
-- authenticated employer public-key hash;
+- employer public-key scope;
 - job scope hash;
 - policy code;
 - challenge;
@@ -106,15 +94,15 @@ These are demonstration standards, not universal hiring recommendations.
 - a holder-specific refusal event;
 - a reusable cross-employer identity.
 
-## Verifier accountability without worker surveillance
+## Canonical Preprod status
 
-Because work requests are public while failed candidate interactions are not, an auditor can analyze an employer's committed standards without receiving a public list of workers who failed or declined.
+The V4 flow is `NETWORK_VERIFIED` on Midnight Preprod. The canonical run committed `SR-WORK-02`, completed a private qualification, finalized the transaction, and confirmed the expected verification id in indexed `workReceipts` before the UI returned `QUALIFIED`.
 
-ShieldRate therefore creates a public record of **the question the verifier committed to**, not a public dossier of everyone who answered.
+See [`../evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-2026-09-16.md`](../evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-2026-09-16.md).
 
 ## Honest limits
 
-- ShieldRate authenticates the wallet that registered a job scope; it does not prove a unique mapping from that scope to one real-world external requisition.
+- Criterion binds a protocol employer scope and job scope; it does not prove a unique mapping to one external real-world requisition.
 - Commit-Before-Know proves policy immutability for the registered scope, not legality or non-discrimination.
 - V4 uses one registered provider to attest the composite private credential. Independent field-level issuers are a future extension.
-- Real network status remains pending until the canonical Lace/Preprod evidence run is captured.
+- `ownPublicKey()`-derived employer scope is not claimed as final production authentication.

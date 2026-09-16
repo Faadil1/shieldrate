@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "ShieldRate — issuer-attested private work qualification on Midnight",
+  "description": "Criterion — Commit-Before-Know private work qualification on Midnight",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
