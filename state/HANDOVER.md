@@ -2,15 +2,15 @@
 
 Resume from `Faadil1/shieldrate` on `winning-intelligence-v4`.
 
-Canonical state: `WINNING_INTELLIGENCE_V4 / V4_TIME_UNIT_FIX_REQUIRED_PROVIDER2_INDEXED`.
+Canonical state: `WINNING_INTELLIGENCE_V4 / V4_UNIX_SECONDS_FIX_DEPLOYED_FRESH_SCOPE_PENDING`.
 
 ## Live contract
 
 `c67fcd95e1620693817a1248bceda34e507d39416a7e9c3038ad89f9844513d2`
 
-Do not redeploy.
+Do not redeploy. Keep the same browser origin/session whenever possible because holder/admin private state is session-scoped.
 
-## Provider 2 is already correct on-chain
+## Provider 2 — canonical issuer / already indexed
 
 Provider id `2`:
 - public key X `281801475387186942268458825925983557163075984222258714615776155627247983780`
@@ -19,48 +19,61 @@ Provider id `2`:
 - block `2568791`
 - indexed epoch `0`
 
-The fixed `SHIELDRATE_ISSUER_SECRET` used for provider 2 should still be kept only in the operator's local PowerShell environment. Do not create provider 3; reissue under provider 2 after fixing time units.
+Do not register provider 2 again. The operator retained the fixed local issuer secret and regenerated a seconds-based credential whose public key exactly matches this already-indexed provider. Keep the secret private/local; do not paste or commit it.
 
-## Confirmed root cause
+## Timestamp bug — fixed and deployed
 
-Two qualification attempts failed before submission with `credential issuance is in the future`, including a credential backdated by 24 hours.
+Confirmed root cause: Compact block-time predicates use Unix seconds; ShieldRate was feeding JavaScript milliseconds.
 
-Compact block-time predicates compare against Unix **seconds**. ShieldRate currently feeds Unix **milliseconds** from JavaScript into:
-- credential `issuedAtEpoch` / `expiresAtEpoch` generation;
-- registered work-request `requestExpiresAtEpoch`;
-- generic proof request expiry.
+Fix chain:
+- `9142b6a...` introduced seconds conversion but also accidental Windows encoding noise;
+- `616874271cf4d1a1bdab061c8cd86bcddbaccbd0` removed BOM/mojibake while preserving the seconds fix.
 
-That is the real bug. The contract itself does not need redeployment; its `Uint<64>` fields and `blockTime*` predicates can operate with seconds once callers use the correct unit.
+Final published behavior:
+- issuer `now = floor(Date.now()/1000)`;
+- issuer expiry adds 30 days in seconds;
+- registered work requests convert ISO expiry to `floor(getTime()/1000)`;
+- generic proof requests do the same.
 
-## Existing request is diagnostic only
+Validation on `6168742`:
+- local typecheck PASS;
+- local tests 25/25 PASS;
+- local build PASS;
+- CI run `35051149085` success;
+- Pages run `35051149094` success.
+
+The public GitHub Pages app therefore contains the Unix-seconds correction.
+
+## Old request is diagnostic only
 
 `sr-wave1-canonical-2026-09-15-01` / policy 2:
 - workRequestId `971f6ab489418b29039ae945a9b197238da5eed6f00c394305cf12366e36892b`
 - tx `003cda886aeecf397418920ee7317c8dc7ee784ae0b4da742438c175451e4bf084`
 - block `2568670`
 
-It is genuinely finalized/indexed, but its expiry was encoded in milliseconds. Preserve it as diagnostic evidence of the discovered bug; do not use it for the final NETWORK_VERIFIED proof.
+It is finalized/indexed but its expiry used milliseconds. Do not use it as final live proof. Preserve it only as diagnostic evidence of the discovered unit mismatch.
 
-Both failed qualification attempts were pre-submission, so no nullifier/work receipt was consumed.
+The two qualification failures were pre-submission and wrote no nullifier or work receipt.
 
-## Exact recovery
+## Immediate continuation
 
-1. Patch `scripts/issue-demo-credential.mjs`:
-   - `now = floor(Date.now()/1000)`;
-   - 30-day expiry adds seconds, not milliseconds.
-2. Patch `src/midnight/runtime.ts` conversions for `requestExpiresAtEpoch` to `floor(Date.getTime()/1000)` in both registered work requests and generic proof requests.
-3. Run CI/build and publish Pages.
-4. With the same fixed provider-2 secret, clear old timestamp env overrides and regenerate provider-2 credential. The public key must remain identical to the already-indexed provider 2 key.
-5. Import that corrected credential.
-6. Create fresh scope `sr-wave1-canonical-2026-09-15-02` with policy code `2`; capture id/tx/block/second-based expiry.
-7. Run private qualification exactly once.
-8. Capture verification id/tx/block and independently verify `workReceiptExists=true`.
-9. Lock final evidence only after all public checks pass.
+1. Hard-refresh `https://faadil1.github.io/shieldrate/` on the same browser origin so the `6168742` runtime is loaded.
+2. Confirm `CURRENT CONTRACT` is still `c67fcd95e1620693817a1248bceda34e507d39416a7e9c3038ad89f9844513d2`.
+3. Do not touch Deploy and do not re-register provider 2.
+4. In Card 05 use fresh scope `sr-wave1-canonical-2026-09-15-02` and policy `SR-WORK-02` / code `2`.
+5. Submit **Commit policy before proof** exactly once and capture the full success line: workRequestId + tx + block.
+6. If submission errors after wallet Submit Transaction, do not click again blindly; reconcile indexed state first.
+7. Recover exact indexed request expiry in Unix seconds before evidence lock.
+8. Import the corrected provider-2 `credentialPayload` from the local seconds-based issuance file into Card 04. Do not expose raw credential data in Git evidence.
+9. Card 06 must target the new workRequestId from step 5; run private qualification exactly once.
+10. Capture full `QUALIFIED` output (verification id + tx + block).
+11. Independently confirm `workReceiptExists=true` for that exact verification id.
+12. Create `evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-<date>.md` only after the complete public evidence bundle is checked.
 
 ## Truth boundary
 
-Deployment and provider 2 are proven live. Request `...-01` is indexed but time-unit-invalid for final evidence. No successful qualification receipt exists yet. Do not claim `NETWORK_VERIFIED` until a clean seconds-based run succeeds.
+Deployment and provider 2 are proven live. Unix-seconds fix is published and CI-green. Old request `...-01` is not valid final time-semantics evidence. Full V4 `NETWORK_VERIFIED` still requires fresh seconds-based request + successful private proof + independently indexed receipt.
 
 ## TRACE gate
 
-Do not reopen TRACE UI/UX until the seconds fix and clean network evidence are complete.
+Do not reopen TRACE UI/UX until clean network evidence is locked.
