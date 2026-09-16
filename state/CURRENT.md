@@ -4,7 +4,7 @@ Date: 2026-09-15
 Workstream: `WINNING_INTELLIGENCE_V4`
 Repository: `Faadil1/shieldrate`
 Branch: `winning-intelligence-v4`
-Status: `V4_PROVIDER2_INDEXED_PRIVATE_QUALIFICATION_RETRY_PENDING`
+Status: `V4_TIME_UNIT_FIX_REQUIRED_PROVIDER2_INDEXED`
 
 ## Product thesis
 
@@ -14,82 +14,71 @@ Canonical flow:
 
 `COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`
 
-## Deployment gate — CLOSED
-
-Current Midnight Preprod contract:
+## Live contract — CLOSED / DO NOT REDEPLOY
 
 `c67fcd95e1620693817a1248bceda34e507d39416a7e9c3038ad89f9844513d2`
 
-Do not redeploy.
+## Provider 2 — INDEXED / CLOSED
 
-## Provider 1 — indexed / legacy credential unusable for this proof
+Provider id `2` is the canonical issuer for the corrected run.
 
-Provider id `1`, epoch `0`, expected-key match are indexed. Its first credential failed pre-submission on the contract time guard because `issuedAtEpoch` was ahead of Midnight block time. The original provider-1 issuer secret was random and not persisted, so that credential cannot be honestly re-signed.
+Public key:
+- x `281801475387186942268458825925983557163075984222258714615776155627247983780`
+- y `44328514486860549557980204826385043161844197115525209758451524636130274127834`
 
-## Provider 2 recovery — INDEXED / CLOSED
+Registration:
+- tx `00f51998e02cad86df03e65954de9c5ae53191f749ce71b11b74ebf260ecf79ea2`
+- block `2568791`
+- indexed epoch `0`
 
-A new provider/credential pair was created with a fixed local issuer secret and a backdated issuance timestamp for the same holder binding.
+Keep the fixed local `SHIELDRATE_ISSUER_SECRET` private. Provider 2 does not need to be re-registered; the same secret can re-sign a corrected credential under the already-indexed public key.
 
-Provider 2 public key:
+## Root cause now confirmed — milliseconds vs seconds
 
-- x: `281801475387186942268458825925983557163075984222258714615776155627247983780`
-- y: `44328514486860549557980204826385043161844197115525209758451524636130274127834`
-
-Live registration result:
-
-- provider id: `2`
-- transaction id: `00f51998e02cad86df03e65954de9c5ae53191f749ce71b11b74ebf260ecf79ea2`
-- block height: `2568791`
-- indexed epoch: `0`
-
-Provider 2 is now the canonical credential issuer for the next qualification attempt. Keep `SHIELDRATE_ISSUER_SECRET` local/private and never commit or paste it into evidence.
-
-## Commit-Before-Know request — INDEXED / CLOSED
-
-Canonical job scope: `sr-wave1-canonical-2026-09-15-01`
-
-Policy: `SR-WORK-02` / code `2`
-
-- workRequestId: `971f6ab489418b29039ae945a9b197238da5eed6f00c394305cf12366e36892b`
-- transaction id: `003cda886aeecf397418920ee7317c8dc7ee784ae0b4da742438c175451e4bf084`
-- block height: `2568670`
-
-The request is finalized and indexed before holder proof. Exact `requestExpiresAtMs` still needs indexed recovery for the final evidence bundle.
-
-## First qualification attempt — PRE-SUBMISSION / NO STATE CONSUMED
-
-The provider-1 proof attempt failed during Compact execution with:
+The second provider-2 qualification attempt also failed pre-submission with:
 
 `failed assert: credential issuance is in the future`
 
-No qualification transaction was submitted, and no nullifier/work receipt was written. Therefore the same work request may be retried safely with the corrected provider-2 credential while the request remains fresh in Midnight block time.
+This disproved the earlier simple clock-skew hypothesis. Compact block-time predicates use Unix **seconds**. ShieldRate was sending JavaScript `Date.now()` / `Date.getTime()` values in Unix **milliseconds** for credential issuance/expiry and work-request expiry.
 
-## Current open gate
+Consequences:
+- provider-1 and first provider-2 credential issuance timestamps were roughly 1000x too large for `blockTimeGte`;
+- canonical request `971f6ab489418b29039ae945a9b197238da5eed6f00c394305cf12366e36892b` was indexed, but its expiry was also encoded in milliseconds and is not valid final time-semantics evidence;
+- both failed qualification attempts stopped before submission and consumed no nullifier/work receipt state.
 
-`IMPORT_PROVIDER2_CREDENTIAL_THEN_RETRY_EXISTING_PRIVATE_QUALIFICATION`
+## Earlier indexed request — preserve as diagnostic evidence, not final canonical proof
+
+Scope `sr-wave1-canonical-2026-09-15-01`, policy `SR-WORK-02` / code `2`:
+- workRequestId `971f6ab489418b29039ae945a9b197238da5eed6f00c394305cf12366e36892b`
+- tx `003cda886aeecf397418920ee7317c8dc7ee784ae0b4da742438c175451e4bf084`
+- block `2568670`
+
+It proves policy commitment mechanics/indexing, but because the expiry unit was wrong it must not be used as the final NETWORK_VERIFIED Commit-Before-Know evidence.
+
+## Current recovery gate
+
+`SECONDS_EVERYWHERE_THEN_NEW_CANONICAL_SCOPE`
 
 Required sequence:
-
-1. Keep the same browser origin/session and deployed contract.
-2. Import the provider-2 `credentialPayload` generated from the fixed-secret/backdated issuance run into Card 04.
-3. Confirm credential status is `Loaded`.
-4. Keep Card 06 pointed at work request `971f6ab489418b29039ae945a9b197238da5eed6f00c394305cf12366e36892b`.
-5. Run registered private qualification once.
-6. If the circuit returns `work request expired` before submission, create a new fresh job scope (e.g. `sr-wave1-canonical-2026-09-15-02`) with policy code `2`; do not reuse the immutable previous employer/job scope.
-7. On success capture verification id + qualification tx id + block height.
-8. Independently confirm `workReceiptExists=true` for that verification id.
-9. Recover request expiry and missing provider-1 metadata only if available; never fabricate them.
-10. Lock `evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-<date>.md` only after all public evidence checks.
+1. Fix `scripts/issue-demo-credential.mjs` to use Unix seconds for `issuedAtEpoch` and `expiresAtEpoch`.
+2. Fix browser runtime work-request/claim expiry conversion to `Math.floor(date.getTime() / 1000)`.
+3. Keep provider 2 registered; do not create provider 3.
+4. Reissue provider-2 credential with the same fixed issuer secret and corrected second-based timestamps.
+5. Publish/validate the runtime fix.
+6. Create fresh scope `sr-wave1-canonical-2026-09-15-02` with policy code `2` so the new request expiry is second-based.
+7. Capture new request id + tx + block + exact expiry seconds.
+8. Import corrected provider-2 credential and run private qualification once.
+9. Capture verification id + tx + block and independently confirm `workReceiptExists=true`.
+10. Only then lock final network evidence and promote exact flow to `NETWORK_VERIFIED`.
 
 ## Truth boundary
 
-- Deployment READY is proven.
-- Provider 2 registration/indexed epoch `0` is proven at block `2568791`.
-- Commit-Before-Know request is finalized/indexed at block `2568670`.
-- The first proof attempt failed pre-submission and consumed no replay/nullifier state.
-- Full V4 `NETWORK_VERIFIED` remains pending successful private qualification + independently indexed work receipt.
-- Never expose holder/admin/issuer secrets or raw credential data in Git evidence.
+- Deployment is live.
+- Provider 2 registration/indexed epoch `0` is proven.
+- Request `...-01` is indexed but has invalid time units and is diagnostic only.
+- No successful private qualification exists yet.
+- Full V4 `NETWORK_VERIFIED` remains pending a clean seconds-based request + credential + indexed receipt.
 
 ## TRACE gate
 
-Do not reopen TRACE UI/UX until private proof → indexed receipt → evidence lock is complete.
+Do not reopen TRACE UI/UX until seconds fix → fresh request → private proof → indexed receipt → evidence lock are complete.
