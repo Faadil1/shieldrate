@@ -83,7 +83,7 @@ export default function App() {
               <div className="mb-5 flex items-center justify-between border-b border-[var(--ink)] pb-4 lg:hidden">
                 <button onClick={() => setView("landing")} className="flex items-center gap-2 text-left">
                   <BrandMark compact />
-                  <span className="trust-wordmark text-[16px] text-[var(--ink)]">SHIELDRATE</span>
+                  <span className="trust-wordmark text-[16px] text-[var(--ink)]">CRITERION</span>
                 </button>
                 <button className="btn-primary" onClick={openRequest}>New request</button>
               </div>
@@ -135,7 +135,7 @@ export default function App() {
               )}
 
               <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ink)] pt-5">
-                <div className="evidence-mono text-[8px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">SR / ENTERPRISE VERIFICATION OPERATIONS / TRACE V3</div>
+                <div className="evidence-mono text-[8px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">CR / PRIVATE QUALIFICATION OPERATIONS / NETWORK VERIFIED</div>
                 <div className="flex flex-wrap gap-2">
                   <button className="btn-secondary" onClick={() => setView("landing")}>Landing</button>
                   <button className="btn-secondary" onClick={() => setView("freelancer")}>Holder dossier</button>
@@ -166,7 +166,7 @@ function WorkspaceBar({ live, walletConnected }: { live: boolean; walletConnecte
         <span className="hidden truncate text-[9px] font-semibold text-[var(--muted)] sm:block">Receipts · Subjects · Policies · Providers · Runtime</span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="preview-pill">Enterprise V3</span>
+        <span className="preview-pill">Protocol V4</span>
         <span className={`mode-badge ${live ? "mode-live" : "mode-demo"}`}>{live ? (walletConnected ? "Live connected" : "Live / wallet required") : "Demo explicit"}</span>
       </div>
     </div>
