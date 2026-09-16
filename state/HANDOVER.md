@@ -2,13 +2,13 @@
 
 Resume from `Faadil1/shieldrate` on `winning-intelligence-v4`.
 
-Canonical state: `WINNING_INTELLIGENCE_V4 / V4_UNIX_SECONDS_FIX_DEPLOYED_FRESH_SCOPE_PENDING`.
+Canonical state: `WINNING_INTELLIGENCE_V4 / V4_COMMIT_INDEXED_PRIVATE_QUALIFICATION_PENDING`.
 
 ## Live contract
 
 `c67fcd95e1620693817a1248bceda34e507d39416a7e9c3038ad89f9844513d2`
 
-Do not redeploy. Keep the same browser origin/session whenever possible because holder/admin private state is session-scoped.
+Do not redeploy. The same contract remains canonical.
 
 ## Provider 2 — canonical issuer / already indexed
 
@@ -19,61 +19,75 @@ Provider id `2`:
 - block `2568791`
 - indexed epoch `0`
 
-Do not register provider 2 again. The operator retained the fixed local issuer secret and regenerated a seconds-based credential whose public key exactly matches this already-indexed provider. Keep the secret private/local; do not paste or commit it.
+Never register provider 2 again. Keep the retained issuer secret private/local; never paste or commit it.
 
-## Timestamp bug — fixed and deployed
+## Timestamp issue — fixed
 
-Confirmed root cause: Compact block-time predicates use Unix seconds; ShieldRate was feeding JavaScript milliseconds.
+The browser/issuer paths now use Unix seconds for Compact block-time comparisons. The old historical work request is diagnostic only because its expiry was created in milliseconds.
 
-Fix chain:
-- `9142b6a...` introduced seconds conversion but also accidental Windows encoding noise;
-- `616874271cf4d1a1bdab061c8cd86bcddbaccbd0` removed BOM/mojibake while preserving the seconds fix.
-
-Final published behavior:
-- issuer `now = floor(Date.now()/1000)`;
-- issuer expiry adds 30 days in seconds;
-- registered work requests convert ISO expiry to `floor(getTime()/1000)`;
-- generic proof requests do the same.
-
-Validation on `6168742`:
-- local typecheck PASS;
-- local tests 25/25 PASS;
-- local build PASS;
-- CI run `35051149085` success;
-- Pages run `35051149094` success.
-
-The public GitHub Pages app therefore contains the Unix-seconds correction.
-
-## Old request is diagnostic only
-
-`sr-wave1-canonical-2026-09-15-01` / policy 2:
+Historical/default request:
+- job `sr-private-frontend-001`
 - workRequestId `971f6ab489418b29039ae945a9b197238da5eed6f00c394305cf12366e36892b`
 - tx `003cda886aeecf397418920ee7317c8dc7ee784ae0b4da742438c175451e4bf084`
 - block `2568670`
+- expiry `1789525256287` (milliseconds; not final evidence)
 
-It is finalized/indexed but its expiry used milliseconds. Do not use it as final live proof. Preserve it only as diagnostic evidence of the discovered unit mismatch.
+Do not qualify against this old request.
 
-The two qualification failures were pre-submission and wrote no nullifier or work receipt.
+## Card 05 issue — resolved
+
+Two problems were isolated:
+- MidnightJS `callTx / Transaction.scoped` could produce a false duplicate assertion while direct `createUnprovenCallTx()` and indexed preflights showed the fresh job key open.
+- refreshes reset the UI job field to the already-fixed historical default job.
+
+ShieldRate now uses an explicit direct work-request lifecycle and Card 05 persists/preflights the selected job before submission.
+
+Relevant commits:
+- `7c25fa3ab874335cae2da8ec5f2b33e5c7e006d6`
+- `36230dfaa0a1e1221ab4720b4581086976ac22c4`
+- `59177e71e512a78c50e613fd9b86dfe0538819d2`
+
+## Canonical clean request — INDEXED / DO NOT RECOMMIT
+
+Job:
+`sr-wave1-canonical-2026-09-15-03`
+
+Policy:
+`SR-WORK-02 / code 2`
+
+Preflight evidence:
+- jobScope `005df1d3a4ccacb3d19d75f1c9cd215251ffcc76a80b99fd5292d0860cf4f6f0`
+- employerPkh `3db29be58b01b8cc56c82af1db7f71f9362d147ccdff67239afc719c7dbbe52c`
+- jobKey `27bde9370c347ee387d0cea4e06374375d246166a4a56aefb445b0a138249cd0`
+- pre-submit state: OPEN
+
+Successful indexed Card 05 evidence:
+- workRequestId `d7f42cc52438981bcd093e39c4e738004d9ff9b26af7348f4cea8abe690c9ed1`
+- tx `00a18b7182d20be241c81d1de17bfa8d1d84d1621c2da921b27a8714b57e0a8eee`
+- block `2575087`
+
+Card 05 is closed. **Never click Commit again for this job.**
 
 ## Immediate continuation
 
-1. Hard-refresh `https://faadil1.github.io/shieldrate/` on the same browser origin so the `6168742` runtime is loaded.
-2. Confirm `CURRENT CONTRACT` is still `c67fcd95e1620693817a1248bceda34e507d39416a7e9c3038ad89f9844513d2`.
-3. Do not touch Deploy and do not re-register provider 2.
-4. In Card 05 use fresh scope `sr-wave1-canonical-2026-09-15-02` and policy `SR-WORK-02` / code `2`.
-5. Submit **Commit policy before proof** exactly once and capture the full success line: workRequestId + tx + block.
-6. If submission errors after wallet Submit Transaction, do not click again blindly; reconcile indexed state first.
-7. Recover exact indexed request expiry in Unix seconds before evidence lock.
-8. Import the corrected provider-2 `credentialPayload` from the local seconds-based issuance file into Card 04. Do not expose raw credential data in Git evidence.
-9. Card 06 must target the new workRequestId from step 5; run private qualification exactly once.
-10. Capture full `QUALIFIED` output (verification id + tx + block).
-11. Independently confirm `workReceiptExists=true` for that exact verification id.
-12. Create `evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-<date>.md` only after the complete public evidence bundle is checked.
+1. Read the indexed request `d7f42cc52438981bcd093e39c4e738004d9ff9b26af7348f4cea8abe690c9ed1` and capture exact `expiresAtEpoch`.
+2. Validate the corrected provider-2 local credential object before importing it. Required properties: income `68000`, ratingX100 `487`, completedJobs `120`, providerEpoch `0`, Unix-second timestamps, `issuedAt < now < expiresAt`, and credential expiry >= request expiry.
+3. Import the corrected provider-2 signed credential in Card 04. Do not expose issuer secret material.
+4. Ensure Card 06 targets exactly `d7f42cc52438981bcd093e39c4e738004d9ff9b26af7348f4cea8abe690c9ed1`.
+5. Run registered private qualification exactly once.
+6. Capture full `QUALIFIED · verification <id> · tx <tx> · block <block>` output.
+7. Independently run the receipt check for that exact verification id and require `workReceiptExists=true`.
+8. Only after that create final network evidence under `evidence/network/` and promote the state to `NETWORK_VERIFIED`.
+
+## Safety / no-repeat rules
+
+- Never deploy another contract.
+- Never re-register provider 2.
+- Never recommit `sr-wave1-canonical-2026-09-15-03`.
+- Do not invent missing expiry/receipt data.
+- If Card 06 errors after wallet Submit, do not retry until indexed receipt state is reconciled.
+- Keep the same browser origin/session where possible; refresh can clear imported credential state even though holder/admin secrets persist in sessionStorage.
 
 ## Truth boundary
 
-Deployment and provider 2 are proven live. Unix-seconds fix is published and CI-green. Old request `...-01` is not valid final time-semantics evidence. Full V4 `NETWORK_VERIFIED` still requires fresh seconds-based request + successful private proof + independently indexed receipt.
-
-## TRACE gate
-
-Do not reopen TRACE UI/UX until clean network evidence is locked.
+Deployment, provider 2, and the clean Commit-Before-Know request are proven live. The clean request is finalized/indexed at block `2575087`. A successful private qualification receipt has **not** yet been captured. V4 remains `NETWORK_VERIFIED = false` until Card 06 succeeds and that exact receipt is independently confirmed in indexed `workReceipts`.
