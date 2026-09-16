@@ -9,7 +9,7 @@ export function BrandMark({ compact = false, className = "", ...props }: BrandMa
     <svg
       viewBox="0 0 64 64"
       role="img"
-      aria-label="SealedFit trust mark"
+      aria-label="Criterion trust mark"
       className={`${compact ? "h-8 w-8" : "h-10 w-10"} ${className}`}
       {...props}
     >
