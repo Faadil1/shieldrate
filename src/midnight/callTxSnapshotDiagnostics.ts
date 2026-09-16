@@ -17,6 +17,9 @@ const fromHex = (value: string): Uint8Array => {
   return new Uint8Array(cleaned.match(/.{2}/g)!.map((part) => Number.parseInt(part, 16)));
 };
 
+const bytesEqual = (a: Uint8Array, b: Uint8Array): boolean =>
+  a.length === b.length && a.every((value, index) => value === b[index]);
+
 const hash32 = async (value: string): Promise<Uint8Array> => {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return new Uint8Array(digest);
@@ -62,6 +65,71 @@ export async function inspectCallTxSnapshot(
     fixedWorkRequestId: alreadyFixedInCallTxSnapshot
       ? hex(ledger.jobRequests.lookup(jobKey))
       : null,
+  };
+}
+
+export interface IndexedWorkRequestForJobMatch {
+  workRequestId: string;
+  employerPkh: string;
+  jobKey: string;
+  policyCode: string;
+  expiresAtEpoch: string;
+  cancelled: boolean;
+  fixedInJobIndex: boolean;
+}
+
+export interface IndexedWorkRequestsForJobDiagnostic {
+  jobId: string;
+  jobScope: string;
+  totalWorkRequests: string;
+  matches: IndexedWorkRequestForJobMatch[];
+}
+
+/**
+ * Read only: scan the indexed ShieldRate ledger for any work request whose
+ * stored jobScope matches the supplied human-readable job id. This is the
+ * authoritative recovery check after an ambiguous/failed UI submission: it
+ * does not construct, prove, sign, or submit a transaction.
+ */
+export async function inspectIndexedWorkRequestsForJob(
+  contractAddress: string,
+  jobId: string,
+): Promise<IndexedWorkRequestsForJobDiagnostic> {
+  const { providers } = await initializeShieldRateProviders();
+  const state = await providers.publicDataProvider.queryContractState(
+    contractAddress as ContractAddress,
+  );
+  if (!state) throw new Error("ShieldRate indexed contract state is unavailable.");
+
+  const ledger = ShieldRateGenerated.ledger(state.data);
+  const jobScope = await hash32(`shieldrate:job:v1|${jobId}`);
+  const matches: IndexedWorkRequestForJobMatch[] = [];
+
+  for (const [workRequestId, request] of ledger.workRequests) {
+    if (!bytesEqual(request.jobScope, jobScope)) continue;
+    const jobKey = ShieldRateGenerated.pureCircuits.deriveJobKey(
+      request.employerPkh,
+      request.jobScope,
+    );
+    const fixedInJobIndex = ledger.jobRequests.member(jobKey)
+      && bytesEqual(ledger.jobRequests.lookup(jobKey), workRequestId);
+
+    matches.push({
+      workRequestId: hex(workRequestId),
+      employerPkh: hex(request.employerPkh),
+      jobKey: hex(jobKey),
+      policyCode: request.policyCode.toString(),
+      expiresAtEpoch: request.expiresAtEpoch.toString(),
+      cancelled: ledger.cancelledWorkRequests.member(workRequestId),
+      fixedInJobIndex,
+    });
+  }
+
+  return {
+    jobId,
+    jobScope: hex(jobScope),
+    totalWorkRequests: ledger.workRequests.size().toString(),
+    matches,
   };
 }
 
