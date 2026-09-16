@@ -1,87 +1,92 @@
-# ShieldRate — 90-Second Judge Demo
+# Criterion — 90-Second Judge Demo
 
 ## Memory sentence
 
-**The employer has to commit the standard before the candidate proves anything. The candidate proves they qualify without revealing why.**
+**The employer commits the criteria before the worker proves anything. The worker proves qualification without revealing the private work data.**
 
-## 0–12s — The asymmetry
+## 0–10s — Start on the problem
 
-Show the opportunity and one sentence:
-
-> Hiring teams often need a yes/no qualification decision, but ask for salary/revenue history, ratings and work history that can later become negotiating leverage.
-
-Do not begin with blockchain vocabulary.
-
-## 12–30s — COMMIT
-
-Open the employer request.
-
-Select `SR-WORK-02` and a job scope, then show that the employer wallet registers that policy before any candidate proof.
+Show the Criterion landing page, not the dashboard.
 
 Say:
 
-> ShieldRate fixes the question first. For this employer and job, the standard cannot be silently changed after we see a candidate outcome.
+> Hiring teams often need a yes-or-no qualification decision, but the evidence they collect can become negotiating leverage. Criterion lets the employer commit the standard first, then lets the worker prove only that they qualify.
 
-Point to the work-request id / policy / expiry.
+Point briefly to `NETWORK_VERIFIED` and the two canonical block numbers. Do not begin with blockchain vocabulary.
 
-## 30–43s — CONSENT
+## 10–27s — COMMIT
 
-Switch to holder context / private credential dossier.
+Open Runtime / Card 05 only long enough to show the registered opportunity and the fixed policy.
 
-Say:
+Canonical job:
 
-> The worker sees the exact public standard and chooses whether to prove it. Refusal creates no public candidate record.
+`sr-wave1-canonical-2026-09-15-03`
 
-Do not reveal the raw credential values in the judge-facing recording unless explicitly showing the private-side boundary for a moment.
+Policy:
 
-## 43–65s — PRIVATE PROOF
-
-Run the registered qualification.
+`SR-WORK-02 / Proven professional`
 
 Say:
 
-> Compact verifies the issuer signature, credential freshness, the already-registered standard and the private conditions. The proof does not accept a new employer or policy at this stage.
+> The standard is fixed before the worker proves anything. For this employer and job key, it cannot be silently replaced after seeing an outcome.
 
-If using live mode, let Lace approval be visible but do not spend time narrating wallet plumbing.
+Canonical evidence to show:
+- work request `d7f42cc52438981bcd093e39c4e738004d9ff9b26af7348f4cea8abe690c9ed1`;
+- commit block `2575087`.
 
-## 65–80s — QUALIFIED
+Do **not** recommit the job during the recording.
 
-Show the receipt.
+## 27–40s — CONSENT / PRIVATE SIDE
 
-The judge should be able to see immediately:
-
-- `QUALIFIED`;
-- registered work-request id;
-- policy code;
-- scoped subject;
-- provider;
-- network receipt state when genuinely live.
+Open the holder dossier.
 
 Say:
 
-> The employer learns that this issuer-attested worker satisfied the committed standard — not their income, rating, job count, margin above the threshold or which component was weakest.
+> The worker controls the private evidence and chooses whether to prove the committed standard. Refusal or failure creates no public worker-specific rejection receipt.
 
-## 80–90s — The second privacy boundary
+Do not expose issuer secret material. Avoid lingering on raw values; the point is the boundary, not the salary number.
 
-End on the contrast:
+## 40–62s — PRIVATE PROOF
 
-> Most privacy credentials protect the answer. ShieldRate also constrains the question: commit the criteria first, publish only a positive scoped qualification, and leave no public rejection trail.
+Use the already-completed canonical run as evidence rather than creating another transaction.
 
-If the canonical Preprod evidence exists by recording time, finish with the contract/tx/indexed-receipt evidence. If it does not, state explicitly that the shown network gate is still pending and use the source-verified demo instead.
+Say:
 
-## Do not spend demo time on
+> Compact checked the registered policy, the provider-signed credential, freshness and the private conditions. The proof stage did not accept a new policy.
 
-- generic dashboard navigation;
-- billing/RBAC/webhook previews;
-- broad selective-disclosure claims;
-- explaining every cryptographic primitive;
-- fake loading/proof theater;
-- raw salary as the product headline.
+If you briefly show the Runtime panel, point to the `QUALIFIED` semantics and explain that the app only reports success after indexed receipt confirmation.
 
-## One-frame judge takeaway
+## 62–80s — QUALIFIED
+
+Return to the landing receipt, which now shows the canonical network proof above the fold.
+
+Canonical qualification:
+- verification `6eef4d8dfd28dcee6dd95502e4baf14b1838525fc8cc6b2b67c94d8c618583b1`;
+- qualification tx `00aedb486f5ab66543f4c16bd90232566d6598bcde2829676ac4e782d098b1d836`;
+- qualification block `2575167`;
+- expected verification id confirmed in indexed `workReceipts` before the runtime returned `QUALIFIED`.
+
+Say:
+
+> The employer learns that this issuer-attested worker satisfied the committed standard — not their income, rating, job count, margin above threshold, or which private component was weakest.
+
+## 80–90s — Close on the second privacy boundary
+
+Say:
+
+> Most private credentials protect the answer. Criterion also constrains the question: commit the criteria first, publish only a positive scoped qualification, and leave no public rejection trail.
+
+End on:
 
 `COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`
 
-Under it:
-
 **Private evidence. Fixed criteria. No public rejection trail.**
+
+## Recording rules
+
+- Do not deploy another contract.
+- Do not re-register Provider 2.
+- Do not recommit the canonical job.
+- Do not run another qualification transaction merely for the video.
+- Do not spend time on generic dashboard navigation, RBAC/billing previews, dependency details or wallet plumbing.
+- Use the canonical proof already captured; the goal of the video is to explain the protocol, not recreate risk.
