@@ -4,7 +4,7 @@ Date: 2026-09-15
 Workstream: `WINNING_INTELLIGENCE_V4`
 Repository: `Faadil1/shieldrate`
 Branch: `winning-intelligence-v4`
-Status: `V4_BROWSER_RUNTIME_GATE_PATCHED_OPERATOR_RETEST_PENDING`
+Status: `V4_WASM_RUNTIME_DEDUP_PATCHED_OPERATOR_RETEST_PENDING`
 
 ## Upstream baseline
 
@@ -45,13 +45,14 @@ Canonical flow:
 - bounded deploy stages with single-submit recovery semantics;
 - hosted wallet prover preferred with delegated prover fallback;
 - browser `Buffer` compatibility boundary installed before lazy Midnight runtime import;
-- Vite 8.3.0 / Vitest 5.0.1 dependency remediation with current Node 22 audit gate at zero known vulnerabilities.
+- browser runtime resolution now pinned to one protocol-compatible WASM/ledger instance;
+- Vite 8.3.0 / Vitest 5.0.1 dependency remediation with Node 22 as authoritative CI gate.
 
 ## Compiled-circuit validation
 
 `tests/compact-contract.test.ts` executes the generated Compact `Contract` rather than a TypeScript-only policy replica.
 
-It currently validates directly against compiled circuit assertions:
+It validates directly against compiled circuit assertions:
 
 - future Unix-millisecond request expiry is accepted;
 - accidental seconds-at-boundary expiry is rejected;
@@ -59,53 +60,60 @@ It currently validates directly against compiled circuit assertions:
 - cancellation does not reopen the policy slot;
 - provider epochs stay monotonic across remove → re-register → rotate.
 
-CI run `35006331486` remains the last fully locked source-validation reference before the browser runtime patch:
+Browser compatibility commit `175df7d6db8fa274bdee0c2a4fde00bc92702871` passed:
 
 - Compact 0.31.1 compile;
 - Node 20 typecheck + 25 tests + build;
-- Node 22 `npm audit --audit-level=moderate` + typecheck + 25 tests + build;
-- audit result: 0 known vulnerabilities at the configured threshold.
+- Node 22 dependency audit + typecheck + 25 tests + build;
+- GitHub Pages deploy.
 
-Node 20 is retained as a compatibility signal; Vitest 5 officially targets newer Node releases, so Node 22 is the authoritative supported verification gate.
+## Latest operator finding — WASM runtime identity gate
 
-## Performance state
+A second supervised 1AM / Midnight Preprod browser run on 2026-09-15 confirmed the `Buffer` repair worked: wallet connection, network `preprod`, holder binding and the Runtime surface all loaded.
 
-The lazy-runtime build keeps judge-facing entry JS around ~241–245 KB minified instead of the earlier roughly 1.08 MB eager bundle. Midnight runtime/WASM remains available through the live path rather than dominating initial app execution.
+On `Deploy ShieldRate contract`, the browser then returned:
 
-## Latest operator finding — browser runtime gate
+`Cannot read properties of undefined (reading 'contractstate_deserialize')`
 
-A supervised 1AM / Midnight Preprod browser run on 2026-09-15 reached:
+No `SUBMITTING` stage or transaction id was reached, so this run did not submit a Preprod deployment and does not create duplicate-deployment risk.
 
-- wallet connected;
-- network = `preprod`;
-- holder binding generated;
-- contract still `NOT JOINED`.
+### Root cause isolated
 
-On `Deploy ShieldRate contract`, the browser returned:
+The lockfile currently contains two browser-relevant runtime versions:
 
-`Buffer is not defined`
+- root `@midnight-ntwrk/onchain-runtime-v3@3.1.1`;
+- `@midnight-ntwrk/midnight-js-protocol@4.1.1` nested `@midnight-ntwrk/onchain-runtime-v3@3.0.0`.
 
-The failure occurred before a deploy stage/transaction submission was reached. No Preprod contract address or transaction id was produced, so this run does **not** create duplicate-deployment risk.
+It also contains:
 
-Root cause: MidnightJS 4.x utilities still reference the Node `Buffer` global (for example their hex helper uses `Buffer.from(...)`), while Vite 8 browser builds do not install Node globals automatically.
+- root `@midnight-ntwrk/ledger-v8@8.1.2`;
+- protocol-pinned nested `@midnight-ntwrk/ledger-v8@8.1.0`.
 
-Applied repair:
+Midnight's current Vite/WASM guidance documents browser-only failures caused by multiple instances of `compact-runtime`, `onchain-runtime-v3`, and `ledger-v8`, and recommends a single deduped runtime boundary.
 
-- `src/main.tsx` imports `Buffer` from the already-declared `buffer` package;
-- installs it on `globalThis` before any lazy Midnight runtime module executes;
-- no network/protocol claim is promoted by this repair alone.
+### Applied repair
+
+`vite.config.ts` now:
+
+- removes the legacy custom WASM resolver/manual chunk path that could bypass canonical package resolution;
+- aliases `onchain-runtime-v3` to the protocol-pinned `3.0.0` copy;
+- aliases `ledger-v8` to the protocol-pinned `8.1.0` copy;
+- adds `resolve.dedupe` for `compact-runtime`, `onchain-runtime-v3`, and `ledger-v8`;
+- keeps the existing browser WASM handling and Compact runtime pre-bundling.
+
+This is a browser bundling/runtime repair only. It does not promote any network claim.
 
 ## Current open gate
 
-`BROWSER_POLYFILL_RETEST_THEN_OPERATOR_NETWORK_EVIDENCE_PENDING`
+`WASM_RUNTIME_RETEST_THEN_OPERATOR_NETWORK_EVIDENCE_PENDING`
 
 Required next sequence:
 
-1. CI + GitHub Pages must validate the browser compatibility patch.
+1. CI + GitHub Pages validate the single-runtime Vite patch.
 2. Hard refresh the published Pages build.
 3. Reconnect 1AM on `preprod`.
 4. Click deploy once and capture the last explicit deploy stage.
-5. If deploy reaches `READY`, continue provider registration → work request → private qualification → indexed `workReceipts` confirmation.
+5. If deploy reaches `READY`, continue provider registration → work request → private qualification → independently indexed `workReceipts`.
 6. Lock the resulting public evidence bundle before promoting any `NETWORK_VERIFIED` claim.
 
 Do not call V4 Preprod/network validated before that evidence exists.
@@ -124,6 +132,6 @@ Do **not** reopen the next TRACE UI/UX workstream yet.
 
 Required order:
 
-`browser runtime repair → operator deploy retest → real request → real proof → indexed receipt → evidence lock → exact network claim promotion → TRACE UI/UX`
+`browser runtime repair → deploy retest → real request → real proof → indexed receipt → evidence lock → exact network claim promotion → TRACE UI/UX`
 
 Until the network evidence file exists, TRACE UI/UX V4 remains intentionally gated.

@@ -2,7 +2,7 @@
 
 Resume from `Faadil1/shieldrate` on `winning-intelligence-v4`.
 
-Canonical state: `WINNING_INTELLIGENCE_V4 / V4_BROWSER_RUNTIME_GATE_PATCHED_OPERATOR_RETEST_PENDING`.
+Canonical state: `WINNING_INTELLIGENCE_V4 / V4_WASM_RUNTIME_DEDUP_PATCHED_OPERATOR_RETEST_PENDING`.
 
 ## Product thesis
 
@@ -12,75 +12,74 @@ Signature flow:
 
 `COMMIT → CONSENT → PRIVATE PROOF → QUALIFIED`
 
-ShieldRate is deliberately differentiated from generic selective disclosure and salary proof. The employer must commit the standard before holder proof, while failure/refusal leaves no holder-specific public negative record.
+ShieldRate fixes the employer's qualification policy before a holder proves anything, while failure/refusal leaves no holder-specific public negative record.
 
 ## Core V4 mechanisms
 
-- `registerWorkRequest` authenticates employer with `ownPublicKey()`;
+- employer-authenticated work requests via `ownPublicKey()`;
 - one immutable standard per employer + job scope;
-- cancellation closes the request but does not free the job key;
-- `verifyRegisteredWorkPolicy` consumes the registered request;
-- opportunity-scoped holder nullifier;
+- cancellation without policy replacement;
 - provider-signed private credential with Schnorr verification;
-- composite policy with one positive receipt;
-- Unix-millisecond Compact time boundary;
-- block-time expiry / future-issued credential rejection;
+- composite qualification with one positive receipt;
+- opportunity-scoped nullifier and scoped holder pseudonym;
+- Unix-millisecond time boundary;
 - monotonic provider epoch revocation;
-- indexed request/receipt verification after tx finalization;
+- independent indexed request/receipt verification;
 - V4 operator UI;
-- lazy-loaded Midnight runtime;
-- controlled deploy stages with bounded indexer waiting and submitted-deployment recovery;
-- wallet hosted prover preference with delegated prover fallback;
-- browser Buffer compatibility bootstrap before Midnight runtime execution;
-- refreshed Vite/Vitest toolchain with zero audit findings in the validated Node 22 gate.
+- lazy Midnight runtime;
+- explicit bounded deploy stages and submitted-deployment recovery;
+- hosted wallet prover preference with delegated fallback;
+- browser `Buffer` bootstrap;
+- single browser WASM/runtime resolution boundary.
 
-## Previously locked source validation
+## Validation immediately before this handover
 
-CI run `35006331486` is the last fully locked source-validation reference before the browser compatibility patch:
+Commit `175df7d6db8fa274bdee0c2a4fde00bc92702871` passed Compact compile, Node 20 verification, Node 22 audit/typecheck/tests/build, and GitHub Pages.
 
-- Compact 0.31.1 compile PASS;
-- Node 20 typecheck PASS;
-- Node 20 tests PASS — 25/25;
-- Node 20 build PASS;
-- Node 22 dependency audit PASS — 0 known vulnerabilities at moderate-or-higher threshold;
-- Node 22 typecheck PASS;
-- Node 22 tests PASS — 25/25;
-- Node 22 build PASS.
+The second supervised browser test then advanced beyond the prior `Buffer is not defined` defect and exposed the next browser-only failure:
 
-Five of the 25 tests execute the generated Compact `Contract` directly. They cover millisecond-vs-second expiry, immutable employer/job policy, cancellation slot closure, and monotonic provider epochs.
+`Cannot read properties of undefined (reading 'contractstate_deserialize')`
 
-## Latest supervised operator result — 2026-09-15
+Interpretation:
 
-The 1AM / Midnight Preprod browser test reached wallet connected + `preprod` + holder binding, but deploy failed with:
+- wallet was connected;
+- network was `preprod`;
+- holder binding was generated;
+- deploy was invoked;
+- no `SUBMITTING` stage or tx id was observed;
+- no duplicate-deployment risk was created by this run.
 
-`Buffer is not defined`
+## Root cause now isolated
 
-Important interpretation:
+`package-lock.json` contains parallel runtime families:
 
-- the failure happened before a deploy transaction was submitted;
-- no contract address or tx id was produced;
-- duplicate deployment protection was therefore not exercised yet;
-- it is safe to retest after the browser patch is published.
+- root `onchain-runtime-v3@3.1.1` vs protocol-pinned `3.0.0`;
+- root `ledger-v8@8.1.2` vs protocol-pinned `8.1.0`.
 
-Root cause is a browser/Node boundary: MidnightJS 4.x still contains runtime helpers using `Buffer.from(...)`, while Vite 8 does not inject Node globals.
+Midnight's current Vite/WASM guidance identifies multiple runtime instances as a browser-only failure class because wasm-bindgen object identity is instance-scoped. CI and CLI paths can therefore pass while the browser fails.
 
-Repair now applied in `src/main.tsx`:
+## Repair applied
 
-- import `Buffer` from the existing `buffer` dependency;
-- install `globalThis.Buffer` before React and before any lazy Midnight runtime import can execute.
+`vite.config.ts` is normalized to one runtime boundary:
 
-Do not treat this repair as network evidence by itself.
+- remove the legacy custom resolver/manual WASM chunk path;
+- alias `@midnight-ntwrk/onchain-runtime-v3` to the `midnight-js-protocol@4.1.1` pinned `3.0.0` copy;
+- alias `@midnight-ntwrk/ledger-v8` to the protocol-pinned `8.1.0` copy;
+- dedupe `compact-runtime`, `onchain-runtime-v3`, and `ledger-v8`;
+- keep Vite browser WASM handling and Compact runtime pre-bundling.
+
+No contract semantics or public claim changes are part of this repair.
 
 ## Immediate continuation
 
-1. Confirm CI and GitHub Pages pass for the Buffer bootstrap commit.
+1. Confirm CI and Pages pass for the WASM dedup/pinning commit.
 2. Hard refresh `https://faadil1.github.io/shieldrate/`.
 3. Reconnect 1AM on `preprod`.
 4. Click `Deploy ShieldRate contract` exactly once.
-5. Record the last explicit stage shown: `PREPARING`, `PROVING`, `BALANCING`, `SUBMITTING`, `INDEXING`, `JOINING`, or `READY`.
-6. If `SUBMITTING` errors or times out, do not blindly click again; inspect wallet activity first.
-7. If `INDEXING` times out, the submitted deployment is persisted and recovery should be used rather than redeploying.
-8. If `READY`, continue the canonical gate: provider registration → employer work request → private qualification → independent indexed `workReceipts` confirmation.
+5. Capture the last stage: `PREPARING`, `PROVING`, `BALANCING`, `SUBMITTING`, `INDEXING`, `JOINING`, or `READY`.
+6. If `SUBMITTING` errors or times out, inspect wallet activity before any retry.
+7. If `INDEXING` times out, recover the persisted deployment rather than redeploy.
+8. If `READY`, continue provider registration → employer work request → private qualification → independent `workReceipts` re-read.
 
 Only after those public values are independently checked may we create:
 
