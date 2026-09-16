@@ -30,6 +30,14 @@ export interface RegisteredWorkRequestResult {
   contractAddress: ContractAddress;
 }
 
+export interface ProviderRegistryStatus {
+  providerId: bigint;
+  exists: boolean;
+  publicKey: JubjubPoint | null;
+  epoch: bigint | null;
+  matchesExpectedKey: boolean | null;
+}
+
 export interface LiveVerificationReceipt {
   verificationId: Uint8Array;
   requestHash: Uint8Array;
@@ -107,6 +115,33 @@ export class ShieldRateAPI {
 
   async setPrivateState(state: ShieldRatePrivateState): Promise<void> {
     await this.providers.privateStateProvider.set(shieldRatePrivateStateKey, state);
+  }
+
+  async providerStatus(providerId: bigint, expectedPk?: JubjubPoint): Promise<ProviderRegistryStatus> {
+    const state = await this.providers.publicDataProvider.queryContractState(this.contractAddress);
+    if (!state) throw new Error("ShieldRate contract state is unavailable.");
+    const ledger = ShieldRateContract.ledger(state.data);
+    if (!ledger.providers.member(providerId)) {
+      return {
+        providerId,
+        exists: false,
+        publicKey: null,
+        epoch: ledger.providerEpochs.member(providerId) ? ledger.providerEpochs.lookup(providerId) : null,
+        matchesExpectedKey: expectedPk ? false : null,
+      };
+    }
+
+    const publicKey = ledger.providers.lookup(providerId);
+    const epoch = ledger.providerEpochs.member(providerId) ? ledger.providerEpochs.lookup(providerId) : null;
+    return {
+      providerId,
+      exists: true,
+      publicKey,
+      epoch,
+      matchesExpectedKey: expectedPk
+        ? publicKey.x === expectedPk.x && publicKey.y === expectedPk.y
+        : null,
+    };
   }
 
   async registerProvider(providerId: bigint, providerPk: JubjubPoint): Promise<FinalizedTxData> {

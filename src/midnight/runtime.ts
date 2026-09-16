@@ -14,6 +14,7 @@ import {
   ShieldRateAPI,
   type LiveVerificationReceipt,
   type LiveWorkQualificationReceipt,
+  type ProviderRegistryStatus,
   type RegisteredWorkRequestResult,
 } from "./api";
 import { CompiledShieldRateContract } from "./contract";
@@ -90,6 +91,22 @@ export interface MidnightRuntimeSnapshot {
 export interface AttestationRequest {
   holderBindingField: string;
   contractAddress: string | null;
+}
+
+export interface ProviderRegistryView {
+  providerId: string;
+  exists: boolean;
+  publicKeyX: string | null;
+  publicKeyY: string | null;
+  epoch: string | null;
+  matchesExpectedKey: boolean | null;
+}
+
+export interface ProviderRegistrationResult {
+  txId: string | null;
+  blockHeight: number | null;
+  recovered: boolean;
+  status: ProviderRegistryView;
 }
 
 let privateState: ShieldRatePrivateState | null = null;
@@ -192,6 +209,34 @@ const restoreKnownContract = async (activeProviders: ShieldRateProviders): Promi
     30_000,
     `Contract ${contractAddress} is indexed, but joining it timed out. Retry Join existing contract.`,
   );
+};
+
+const providerView = (status: ProviderRegistryStatus): ProviderRegistryView => ({
+  providerId: status.providerId.toString(),
+  exists: status.exists,
+  publicKeyX: status.publicKey ? status.publicKey.x.toString() : null,
+  publicKeyY: status.publicKey ? status.publicKey.y.toString() : null,
+  epoch: status.epoch?.toString() ?? null,
+  matchesExpectedKey: status.matchesExpectedKey,
+});
+
+const waitForProviderState = async (
+  providerId: bigint,
+  expectedPk: JubjubPoint,
+  timeoutMs = 45_000,
+): Promise<ProviderRegistryStatus | null> => {
+  if (!api) return null;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const status = await api.providerStatus(providerId, expectedPk);
+      if (status.exists) return status;
+    } catch {
+      // Indexer/network reads are retried within the bounded recovery window.
+    }
+    await delay(2_500);
+  }
+  return null;
 };
 
 export const getMidnightRuntimeSnapshot = (): MidnightRuntimeSnapshot => ({
@@ -301,7 +346,6 @@ export const deployMidnightContract = async (
   };
   sessionStorage.setItem(PENDING_DEPLOYMENT_STORAGE_KEY, JSON.stringify(pending));
 
-  // Preserve the deployer's local authority/private state while indexing catches up.
   activeProviders.privateStateProvider.setContractAddress(contractAddress);
   await activeProviders.privateStateProvider.set(shieldRatePrivateStateKey, unsubmitted.private.initialPrivateState);
   await activeProviders.privateStateProvider.setSigningKey(contractAddress, unsubmitted.private.signingKey);
@@ -343,11 +387,67 @@ export const joinMidnightContract = async (contractAddress: string): Promise<voi
   sessionStorage.removeItem(PENDING_DEPLOYMENT_STORAGE_KEY);
 };
 
-export const registerMidnightProvider = async (providerId: bigint, providerPk: JubjubPoint): Promise<{ txId: string; blockHeight: number }> => {
+export const inspectMidnightProvider = async (providerId: bigint, expectedPk?: JubjubPoint): Promise<ProviderRegistryView> => {
+  await ensureProviders();
+  if (!api) throw new Error("Deploy or join a ShieldRate contract before checking an issuer.");
+  return providerView(await api.providerStatus(providerId, expectedPk));
+};
+
+export const registerMidnightProvider = async (
+  providerId: bigint,
+  providerPk: JubjubPoint,
+): Promise<ProviderRegistrationResult> => {
   await ensureProviders();
   if (!api) throw new Error("Deploy or join a ShieldRate contract before registering an issuer.");
-  const tx = await api.registerProvider(providerId, providerPk);
-  return { txId: String(tx.txId), blockHeight: tx.blockHeight };
+
+  const before = await api.providerStatus(providerId, providerPk);
+  if (before.exists) {
+    if (!before.matchesExpectedKey) {
+      throw new Error(`STOP · Provider ${providerId.toString()} is already registered with a different public key. Do not submit another registration.`);
+    }
+    return {
+      txId: null,
+      blockHeight: null,
+      recovered: true,
+      status: providerView(before),
+    };
+  }
+
+  try {
+    const tx = await api.registerProvider(providerId, providerPk);
+    const indexed = await waitForProviderState(providerId, providerPk);
+    if (!indexed) {
+      throw new Error("Provider transaction finalized, but indexed provider state was not confirmed within 45 seconds.");
+    }
+    if (!indexed.matchesExpectedKey) {
+      throw new Error(`Provider ${providerId.toString()} became occupied by a different public key. Stop the run.`);
+    }
+    return {
+      txId: String(tx.txId),
+      blockHeight: tx.blockHeight,
+      recovered: false,
+      status: providerView(indexed),
+    };
+  } catch (error) {
+    const recovered = await waitForProviderState(providerId, providerPk);
+    if (recovered?.exists) {
+      if (!recovered.matchesExpectedKey) {
+        throw new Error(`STOP · Submission outcome is ambiguous and provider ${providerId.toString()} is now registered with a different public key.`);
+      }
+      return {
+        txId: null,
+        blockHeight: null,
+        recovered: true,
+        status: providerView(recovered),
+      };
+    }
+
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Provider registration was not confirmed in indexed ledger state. No automatic retry was performed. ` +
+      `Use “Check provider on-chain” before creating any fresh transaction. Original submission error: ${detail}`,
+    );
+  }
 };
 
 export const createAttestationRequest = (): AttestationRequest => {

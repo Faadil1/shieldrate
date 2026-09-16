@@ -112,11 +112,23 @@ export function LiveSetupPanel() {
           <p className="text-[10px] leading-5 text-[var(--muted)]">Provider epochs are monotonic. Removing and re-registering a provider id cannot revive an old credential epoch.</p>
           <div className="mt-4 grid grid-cols-3 gap-2"><input className="field" value={providerId} onChange={(e) => setProviderId(e.target.value)} placeholder="Provider ID" /><input className="field col-span-2 evidence-mono text-[9px]" value={providerX} onChange={(e) => setProviderX(e.target.value)} placeholder="Public key X" /></div>
           <input className="field evidence-mono mt-2 text-[9px]" value={providerY} onChange={(e) => setProviderY(e.target.value)} placeholder="Public key Y" />
-          <button className="btn-primary mt-3 w-full" disabled={busy || !providerId || !providerX || !providerY} onClick={() => void run(async () => {
+          <button className="btn-secondary mt-3 w-full" disabled={busy || !providerId || !snapshot.contractAddress} onClick={() => void run(async () => {
+            const { inspectMidnightProvider } = await import("../midnight/runtime");
+            const expectedKey = providerX && providerY ? { x: BigInt(providerX), y: BigInt(providerY) } : undefined;
+            const status = await inspectMidnightProvider(BigInt(providerId), expectedKey);
+            if (!status.exists) return `NOT REGISTERED · Provider ${providerId} is absent from indexed ledger state. No transaction was submitted by this check.`;
+            if (status.matchesExpectedKey === false) return `STOP · Provider ${providerId} is indexed with a DIFFERENT public key · epoch ${status.epoch ?? "unknown"}. Do not register again.`;
+            return `INDEXED · Provider ${providerId} exists · epoch ${status.epoch ?? "unknown"}${status.matchesExpectedKey ? " · expected key matches" : ""}.`;
+          })}>Check provider on-chain</button>
+          <button className="btn-primary mt-2 w-full" disabled={busy || !providerId || !providerX || !providerY} onClick={() => void run(async () => {
             const { registerMidnightProvider } = await import("../midnight/runtime");
-            const tx = await registerMidnightProvider(BigInt(providerId), { x: BigInt(providerX), y: BigInt(providerY) });
-            return `Provider registered in tx ${tx.txId} at block ${tx.blockHeight}.`;
+            const result = await registerMidnightProvider(BigInt(providerId), { x: BigInt(providerX), y: BigInt(providerY) });
+            if (result.recovered) {
+              return `RECOVERED · Provider ${providerId} is already indexed with the expected key · epoch ${result.status.epoch ?? "unknown"}. No new registration transaction was submitted.`;
+            }
+            return `Provider registered in tx ${result.txId} at block ${result.blockHeight} · indexed epoch ${result.status.epoch ?? "unknown"}.`;
           })}>Register provider on-chain</button>
+          <p className="mt-2 text-[8px] leading-4 text-[var(--muted)]">After any Submit Transaction error or timeout, use Check provider on-chain first. ShieldRate never automatically resubmits an ambiguous provider registration.</p>
         </SetupCard>
 
         <SetupCard code="04" title="Credential import" subtitle="Signed payload only — never issuer secret." tone="verify">
