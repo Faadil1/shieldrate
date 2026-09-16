@@ -54,7 +54,7 @@ const SECTION_COPY: Record<SectionKey, { eyebrow: string; title: string; descrip
   settings: {
     eyebrow: "Platform / Midnight runtime",
     title: "Runtime control",
-    description: "Deploy or join the contract, register providers, import signed credentials and enforce live receipt verification.",
+    description: "Join the verified contract, inspect providers, import signed credentials and enforce indexed receipt verification.",
   },
   integrations: {
     eyebrow: "Platform / connectors",
@@ -83,7 +83,7 @@ export function Header({ wallet, pendingCount, section, onDisconnect, onGenerate
         <div className="flex flex-wrap items-center gap-3">
           <span className="micro-label">{copy.eyebrow}</span>
           <span className="h-px w-10 bg-[var(--copper)]" />
-          <span className="evidence-mono text-[7px] font-bold uppercase tracking-[.17em] text-[var(--copper)]">Enterprise surface / V3</span>
+          <span className="evidence-mono text-[7px] font-bold uppercase tracking-[.17em] text-[var(--copper)]">Criterion protocol / V4</span>
         </div>
         <h1 className="display-serif mt-3 text-[38px] leading-[.96] text-[var(--ink)] md:text-[46px]">{copy.title}</h1>
         <p className="mt-3 max-w-[820px] text-[11px] leading-5 text-[var(--muted)]">{copy.description}</p>
@@ -91,7 +91,7 @@ export function Header({ wallet, pendingCount, section, onDisconnect, onGenerate
 
       <div className="flex flex-wrap items-center gap-2">
         <span className={`mode-badge ${live ? "mode-live" : "mode-demo"}`}>{live ? "Midnight live" : "Demo attested"}</span>
-        <span className="mode-badge">{pendingCount} pending fixture{pendingCount === 1 ? "" : "s"}</span>
+        <span className={`mode-badge ${live ? "mode-live" : ""}`}>{live ? "Network verified" : `${pendingCount} pending fixture${pendingCount === 1 ? "" : "s"}`}</span>
         {wallet.connected ? (
           <div className="flex items-center gap-2 border border-[var(--rule-strong)] bg-[rgba(255,248,232,.72)] px-3 py-2">
             <span className={`h-1.5 w-1.5 rounded-full ${live ? "bg-[var(--verify)]" : "bg-[var(--amber)]"}`} />
