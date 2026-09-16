@@ -252,11 +252,6 @@ export class ShieldRateAPI {
       throw new Error(`Work request tx ${txId} finalized with status ${String(finalized.status)}. Do not retry automatically.`);
     }
 
-    await this.providers.privateStateProvider.set(
-      shieldRatePrivateStateKey,
-      unproven.private.nextPrivateState as ShieldRatePrivateState,
-    );
-
     return {
       workRequestId,
       txId,
