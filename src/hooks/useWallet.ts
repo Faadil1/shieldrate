@@ -2,7 +2,6 @@ import { useCallback, useState } from "react";
 import type { MidnightNetwork, WalletState } from "../types";
 import { displayAddress } from "../data";
 import { executionMode } from "../security/integrity";
-import { connectMidnightRuntime } from "../midnight/runtime";
 
 const DEMO_ADDR = "demo-wallet-7a3f8b2c9de14f7a";
 
@@ -19,18 +18,14 @@ const normalizeNetwork = (network: string): MidnightNetwork => {
 };
 
 export function useWallet(): UseWalletReturn {
-  const [wallet, setWallet] = useState<WalletState>({
-    connected: false,
-    address: null,
-    displayAddress: "Not connected",
-    network: "none",
-  });
+  const [wallet, setWallet] = useState<WalletState>({ connected: false, address: null, displayAddress: "Not connected", network: "none" });
   const [connecting, setConnecting] = useState(false);
 
   const connect = useCallback(async (): Promise<WalletState> => {
     setConnecting(true);
     try {
       if (executionMode() === "midnight-live") {
+        const { connectMidnightRuntime } = await import("../midnight/runtime");
         const runtime = await connectMidnightRuntime();
         if (!runtime.wallet) throw new Error("Midnight Lace connected without a wallet session.");
         const address = runtime.wallet.shieldedAddress ?? runtime.wallet.shieldedCoinPublicKey;
@@ -44,12 +39,7 @@ export function useWallet(): UseWalletReturn {
         return next;
       }
 
-      const next: WalletState = {
-        connected: true,
-        address: DEMO_ADDR,
-        displayAddress: displayAddress(DEMO_ADDR),
-        network: "none",
-      };
+      const next: WalletState = { connected: true, address: DEMO_ADDR, displayAddress: displayAddress(DEMO_ADDR), network: "none" };
       setWallet(next);
       return next;
     } finally {
@@ -58,12 +48,7 @@ export function useWallet(): UseWalletReturn {
   }, []);
 
   const disconnect = useCallback(() => {
-    setWallet({
-      connected: false,
-      address: null,
-      displayAddress: "Not connected",
-      network: "none",
-    });
+    setWallet({ connected: false, address: null, displayAddress: "Not connected", network: "none" });
   }, []);
 
   return { wallet, connect, disconnect, connecting };

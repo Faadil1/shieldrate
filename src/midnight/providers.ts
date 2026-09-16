@@ -12,7 +12,7 @@ import {
   Transaction,
   type TransactionId,
 } from "@midnight-ntwrk/midnight-js-protocol/ledger";
-import type { UnboundTransaction } from "@midnight-ntwrk/midnight-js-types";
+import { createProofProvider, type UnboundTransaction } from "@midnight-ntwrk/midnight-js-types";
 import { catchError, concatMap, filter, firstValueFrom, interval, map, take, throwError, timeout } from "rxjs";
 import semver from "semver";
 import { inMemoryPrivateStateProvider } from "./privateStateProvider";
@@ -40,57 +40,96 @@ const getFirstCompatibleWallet = (): InitialAPI | undefined => {
   );
 };
 
-export const connectToLace = async (networkId = import.meta.env.VITE_MIDNIGHT_NETWORK_ID || DEFAULT_NETWORK): Promise<ConnectedAPI> =>
+export const connectToWallet = async (
+  networkId = import.meta.env.VITE_MIDNIGHT_NETWORK_ID || DEFAULT_NETWORK,
+): Promise<ConnectedAPI> =>
   firstValueFrom(
     interval(100).pipe(
       map(() => getFirstCompatibleWallet()),
       filter((api): api is InitialAPI => !!api),
       take(1),
-      timeout({ first: 5_000, with: () => throwError(() => new Error("Could not find a compatible Midnight Lace wallet (Connector API 4.x).")) }),
+      timeout({ first: 5_000, with: () => throwError(() => new Error("Could not find a compatible Midnight wallet (Connector API 4.x).")) }),
       concatMap((api) => api.connect(networkId)),
-      timeout({ first: 10_000, with: () => throwError(() => new Error("Midnight Lace did not respond to the connection request.")) }),
-      catchError((error) => throwError(() => error instanceof Error ? error : new Error("Midnight Lace authorization failed."))),
+      timeout({ first: 10_000, with: () => throwError(() => new Error("Midnight wallet did not respond to the connection request.")) }),
+      catchError((error) => throwError(() => error instanceof Error ? error : new Error("Midnight wallet authorization failed."))),
     ),
   );
 
-export const initializeShieldRateProviders = async (): Promise<{
-  providers: ShieldRateProviders;
-  wallet: MidnightWalletSession;
+export interface MidnightWalletConnection {
   connectedAPI: ConnectedAPI;
-}> => {
+  wallet: MidnightWalletSession;
+  config: Awaited<ReturnType<ConnectedAPI["getConfiguration"]>>;
+  addresses: Awaited<ReturnType<ConnectedAPI["getShieldedAddresses"]>>;
+}
+
+/** Connect and validate the wallet only; proving stays lazy. */
+export const connectMidnightWallet = async (): Promise<MidnightWalletConnection> => {
   const requestedNetwork = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID || DEFAULT_NETWORK) as NetworkId;
   setNetworkId(requestedNetwork);
 
-  const connectedAPI = await connectToLace(requestedNetwork);
+  const connectedAPI = await connectToWallet(requestedNetwork);
   const status = await connectedAPI.getConnectionStatus();
-  if (status.status !== "connected") throw new Error("Midnight Lace connection did not reach connected state.");
+  if (status.status !== "connected") throw new Error("Midnight wallet connection did not reach connected state.");
   if (status.networkId !== requestedNetwork) {
     throw new Error(`Midnight network mismatch: requested ${requestedNetwork}, wallet connected to ${status.networkId}.`);
   }
 
   setNetworkId(status.networkId as NetworkId);
   const config = await connectedAPI.getConfiguration();
-  if (!config.proverServerUri) throw new Error("Lace did not provide a proof server URI.");
-  if (!config.indexerUri || !config.indexerWsUri) throw new Error("Lace did not provide complete indexer endpoints.");
+  if (!config.indexerUri || !config.indexerWsUri) throw new Error("Midnight wallet did not provide complete indexer endpoints.");
 
   const addresses = await connectedAPI.getShieldedAddresses();
   if (!addresses.shieldedCoinPublicKey || !addresses.shieldedEncryptionPublicKey) {
-    throw new Error("Lace did not provide shielded public keys.");
+    throw new Error("Midnight wallet did not provide shielded public keys.");
   }
 
+  return {
+    connectedAPI,
+    config,
+    addresses,
+    wallet: {
+      networkId: status.networkId,
+      shieldedAddress: addresses.shieldedAddress ?? null,
+      shieldedCoinPublicKey: addresses.shieldedCoinPublicKey,
+      shieldedEncryptionPublicKey: addresses.shieldedEncryptionPublicKey,
+    },
+  };
+};
+
+export const initializeShieldRateProviders = async (
+  existingConnection?: MidnightWalletConnection,
+): Promise<{
+  providers: ShieldRateProviders;
+  wallet: MidnightWalletSession;
+  connectedAPI: ConnectedAPI;
+}> => {
+  const connection = existingConnection ?? await connectMidnightWallet();
+  const { connectedAPI, config, addresses, wallet } = connection;
+
   const privateStateProvider = inMemoryPrivateStateProvider<ShieldRatePrivateStateId, ShieldRatePrivateState>();
-  const zkConfigProvider = new FetchZkConfigProvider<ShieldRateCircuitKeys>(window.location.origin, fetch.bind(window));
+  const zkArtifactBaseUrl = new URL("./", window.location.href).href.replace(/\/$/, "");
+  const zkConfigProvider = new FetchZkConfigProvider<ShieldRateCircuitKeys>(zkArtifactBaseUrl, fetch.bind(window));
+
+  // 1AM exposes a hosted prover through its Connector configuration. Prefer that
+  // transaction-level HTTP provider when present: it handles the complete deploy
+  // transaction, including wallet/built-in ledger proving material. Keep the v4
+  // delegated proving provider as a fallback for wallets that do not expose a URI.
+  const proofProvider = config.proverServerUri
+    ? httpClientProofProvider(config.proverServerUri, zkConfigProvider)
+    : typeof connectedAPI.getProvingProvider === "function"
+      ? createProofProvider(await connectedAPI.getProvingProvider(zkConfigProvider))
+      : (() => { throw new Error("No compatible Midnight proof provider is available from the connected wallet."); })();
 
   const providers: ShieldRateProviders = {
     privateStateProvider,
     zkConfigProvider,
-    proofProvider: httpClientProofProvider(config.proverServerUri, zkConfigProvider),
+    proofProvider,
     publicDataProvider: indexerPublicDataProvider(config.indexerUri, config.indexerWsUri),
     walletProvider: {
       getCoinPublicKey: () => addresses.shieldedCoinPublicKey,
       getEncryptionPublicKey: () => addresses.shieldedEncryptionPublicKey,
       balanceTx: async (tx: UnboundTransaction): Promise<FinalizedTransaction> => {
-        const balanced = await connectedAPI.balanceUnsealedTransaction(toHex(tx.serialize()));
+        const balanced = await connectedAPI.balanceUnsealedTransaction(toHex(tx.serialize()), { payFees: true });
         return Transaction.deserialize<SignatureEnabled, Proof, Binding>("signature", "proof", "binding", fromHex(balanced.tx));
       },
     },
@@ -102,16 +141,8 @@ export const initializeShieldRateProviders = async (): Promise<{
     },
   };
 
-  return {
-    providers,
-    connectedAPI,
-    wallet: {
-      networkId: status.networkId,
-      shieldedAddress: addresses.shieldedAddress ?? null,
-      shieldedCoinPublicKey: addresses.shieldedCoinPublicKey,
-      shieldedEncryptionPublicKey: addresses.shieldedEncryptionPublicKey,
-    },
-  };
+  return { providers, connectedAPI, wallet };
 };
 
+export const connectToLace = connectToWallet;
 export { shieldRatePrivateStateKey };

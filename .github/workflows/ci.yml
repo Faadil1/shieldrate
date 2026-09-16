@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, midnight-live-integration-v1, ui-ux-judge-experience-v1, ui-ux-trace-max-v2, ui-ux-enterprise-saas-v3]
+    branches: [main, midnight-live-integration-v1, ui-ux-judge-experience-v1, ui-ux-trace-max-v2, ui-ux-enterprise-saas-v3, winning-intelligence-v4]
   pull_request:
 
 jobs:
@@ -59,6 +59,9 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Dependency audit gate
+        if: matrix.node == 22
+        run: npm audit --audit-level=moderate
       - name: Typecheck
         run: npm run typecheck
       - name: Run tests

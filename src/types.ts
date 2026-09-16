@@ -3,6 +3,7 @@ export type ProofStatus = "verified" | "rejected" | "pending";
 export type ProofExecutionMode = "demo-attested" | "midnight-live";
 export type LedgerStatus = "local-only" | "submitted" | "confirmed";
 export type MidnightNetwork = "preprod" | "preview" | "devnet" | "undeployed" | "none";
+export type WorkPolicyCode = 1 | 2 | 3;
 
 export interface Verification {
   id: string;
@@ -54,6 +55,17 @@ export interface ProofRequest {
   requestExpiresAt?: string;
 }
 
+// Flagship qualification request. The verifier asks one question (does this
+// holder satisfy policy SR-WORK-0N?) rather than probing private attributes one
+// by one.
+export interface WorkPolicyRequest {
+  policyCode: WorkPolicyCode;
+  employerId?: string;
+  jobId?: string;
+  challenge?: string;
+  requestExpiresAt?: string;
+}
+
 export interface IssuerCredential {
   credentialId: string;
   issuerId: string;
@@ -88,6 +100,27 @@ export interface ProofReceipt {
   blockHeight?: string;
 }
 
+export interface WorkQualificationReceipt {
+  verificationId: string;
+  requestHash: string;
+  scopedSubject: string;
+  nullifier: string;
+  issuerId: string;
+  employerId: string;
+  jobId: string;
+  policyCode: WorkPolicyCode;
+  policyLabel: string;
+  generatedAt: string;
+  requestExpiresAt: string;
+  credentialExpiresAt: string;
+  mode: ProofExecutionMode;
+  network: "not-submitted" | "preprod" | "preview" | "devnet";
+  ledgerStatus: LedgerStatus;
+  txHash?: string;
+  contractAddress?: string;
+  blockHeight?: string;
+}
+
 export interface ProofResult {
   passed: boolean;
   userHash: string;
@@ -97,5 +130,15 @@ export interface ProofResult {
   verifiedOnChain: boolean;
   mode: ProofExecutionMode;
   receipt: ProofReceipt | null;
+  failureReason?: string;
+}
+
+export interface WorkQualificationResult {
+  qualified: boolean;
+  proofId: string;
+  generatedAt: string;
+  verifiedOnChain: boolean;
+  mode: ProofExecutionMode;
+  receipt: WorkQualificationReceipt | null;
   failureReason?: string;
 }

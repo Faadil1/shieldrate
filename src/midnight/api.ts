@@ -15,6 +15,29 @@ export interface LiveVerificationRequest {
   requestExpiresAtEpoch: bigint;
 }
 
+export interface RegisterWorkRequestInput {
+  jobScope: Uint8Array;
+  policyCode: bigint;
+  challenge: Uint8Array;
+  requestNonce: Uint8Array;
+  requestExpiresAtEpoch: bigint;
+}
+
+export interface RegisteredWorkRequestResult {
+  workRequestId: Uint8Array;
+  txId: string;
+  blockHeight: number;
+  contractAddress: ContractAddress;
+}
+
+export interface ProviderRegistryStatus {
+  providerId: bigint;
+  exists: boolean;
+  publicKey: JubjubPoint | null;
+  epoch: bigint | null;
+  matchesExpectedKey: boolean | null;
+}
+
 export interface LiveVerificationReceipt {
   verificationId: Uint8Array;
   requestHash: Uint8Array;
@@ -27,10 +50,23 @@ export interface LiveVerificationReceipt {
   contractAddress: ContractAddress;
 }
 
+export interface LiveWorkQualificationReceipt extends LiveVerificationReceipt {
+  policyCode: bigint;
+  workRequestId: Uint8Array;
+}
+
 type ShieldRateCallTx = {
   registerProvider(providerId: bigint, providerPk: JubjubPoint): Promise<{ public: FinalizedTxData }>;
   rotateProviderEpoch(providerId: bigint): Promise<{ public: FinalizedTxData }>;
   removeProvider(providerId: bigint): Promise<{ public: FinalizedTxData }>;
+  registerWorkRequest(
+    jobScope: Uint8Array,
+    policyCode: bigint,
+    challenge: Uint8Array,
+    requestNonce: Uint8Array,
+    requestExpiresAtEpoch: bigint,
+  ): Promise<{ public: FinalizedTxData }>;
+  cancelWorkRequest(workRequestId: Uint8Array): Promise<{ public: FinalizedTxData }>;
   verifyClaim(
     employerScope: Uint8Array,
     jobScope: Uint8Array,
@@ -39,13 +75,11 @@ type ShieldRateCallTx = {
     challenge: Uint8Array,
     requestExpiresAtEpoch: bigint,
   ): Promise<{ public: FinalizedTxData }>;
+  verifyRegisteredWorkPolicy(workRequestId: Uint8Array): Promise<{ public: FinalizedTxData }>;
 };
 
 export class ShieldRateAPI {
-  private constructor(
-    readonly deployedContract: DeployedShieldRateContract,
-    readonly providers: ShieldRateProviders,
-  ) {
+  private constructor(readonly deployedContract: DeployedShieldRateContract, readonly providers: ShieldRateProviders) {
     this.contractAddress = deployedContract.deployTxData.public.contractAddress;
     providers.privateStateProvider.setContractAddress(this.contractAddress);
   }
@@ -67,11 +101,7 @@ export class ShieldRateAPI {
     return api;
   }
 
-  static async join(
-    providers: ShieldRateProviders,
-    contractAddress: ContractAddress,
-    privateState: ShieldRatePrivateState,
-  ): Promise<ShieldRateAPI> {
+  static async join(providers: ShieldRateProviders, contractAddress: ContractAddress, privateState: ShieldRatePrivateState): Promise<ShieldRateAPI> {
     const deployed = await findDeployedContract(providers as any, {
       contractAddress,
       compiledContract: CompiledShieldRateContract,
@@ -87,24 +117,76 @@ export class ShieldRateAPI {
     await this.providers.privateStateProvider.set(shieldRatePrivateStateKey, state);
   }
 
+  async providerStatus(providerId: bigint, expectedPk?: JubjubPoint): Promise<ProviderRegistryStatus> {
+    const state = await this.providers.publicDataProvider.queryContractState(this.contractAddress);
+    if (!state) throw new Error("ShieldRate contract state is unavailable.");
+    const ledger = ShieldRateContract.ledger(state.data);
+    if (!ledger.providers.member(providerId)) {
+      return {
+        providerId,
+        exists: false,
+        publicKey: null,
+        epoch: ledger.providerEpochs.member(providerId) ? ledger.providerEpochs.lookup(providerId) : null,
+        matchesExpectedKey: expectedPk ? false : null,
+      };
+    }
+
+    const publicKey = ledger.providers.lookup(providerId);
+    const epoch = ledger.providerEpochs.member(providerId) ? ledger.providerEpochs.lookup(providerId) : null;
+    return {
+      providerId,
+      exists: true,
+      publicKey,
+      epoch,
+      matchesExpectedKey: expectedPk
+        ? publicKey.x === expectedPk.x && publicKey.y === expectedPk.y
+        : null,
+    };
+  }
+
   async registerProvider(providerId: bigint, providerPk: JubjubPoint): Promise<FinalizedTxData> {
-    const tx = await this.callTx.registerProvider(providerId, providerPk);
-    return tx.public;
+    return (await this.callTx.registerProvider(providerId, providerPk)).public;
   }
 
   async rotateProviderEpoch(providerId: bigint): Promise<FinalizedTxData> {
-    const tx = await this.callTx.rotateProviderEpoch(providerId);
-    return tx.public;
+    return (await this.callTx.rotateProviderEpoch(providerId)).public;
   }
 
   async removeProvider(providerId: bigint): Promise<FinalizedTxData> {
-    const tx = await this.callTx.removeProvider(providerId);
-    return tx.public;
+    return (await this.callTx.removeProvider(providerId)).public;
+  }
+
+  async registerWorkRequest(request: RegisterWorkRequestInput): Promise<RegisteredWorkRequestResult> {
+    const workRequestId = ShieldRateContract.pureCircuits.deriveWorkRequestId(
+      request.jobScope,
+      request.policyCode,
+      request.challenge,
+      request.requestNonce,
+      request.requestExpiresAtEpoch,
+    );
+    const tx = await this.callTx.registerWorkRequest(
+      request.jobScope,
+      request.policyCode,
+      request.challenge,
+      request.requestNonce,
+      request.requestExpiresAtEpoch,
+    );
+    const exists = await this.workRequestExists(workRequestId);
+    if (!exists) throw new Error("Work request transaction finalized but request was not found in indexed ledger state.");
+    return {
+      workRequestId,
+      txId: String(tx.public.txId),
+      blockHeight: tx.public.blockHeight,
+      contractAddress: this.contractAddress,
+    };
+  }
+
+  async cancelWorkRequest(workRequestId: Uint8Array): Promise<FinalizedTxData> {
+    return (await this.callTx.cancelWorkRequest(workRequestId)).public;
   }
 
   async verifyClaim(request: LiveVerificationRequest, state: ShieldRatePrivateState): Promise<LiveVerificationReceipt> {
     await this.setPrivateState(state);
-
     const requestHash = ShieldRateContract.pureCircuits.deriveRequestHash(
       request.employerScope,
       request.jobScope,
@@ -113,11 +195,7 @@ export class ShieldRateAPI {
       request.challenge,
       request.requestExpiresAtEpoch,
     );
-    const scopedSubject = ShieldRateContract.pureCircuits.deriveScopedSubject(
-      state.holderSecret,
-      request.employerScope,
-      request.jobScope,
-    );
+    const scopedSubject = ShieldRateContract.pureCircuits.deriveScopedSubject(state.holderSecret, request.employerScope, request.jobScope);
     const nullifier = ShieldRateContract.pureCircuits.deriveNullifier(state.holderSecret, requestHash);
     const verificationId = ShieldRateContract.pureCircuits.deriveVerificationId(requestHash, scopedSubject, nullifier);
 
@@ -129,9 +207,7 @@ export class ShieldRateAPI {
       request.challenge,
       request.requestExpiresAtEpoch,
     );
-
-    const exists = await this.receiptExists(verificationId);
-    if (!exists) throw new Error("Midnight transaction finalized but ShieldRate receipt was not found in the indexed ledger state.");
+    if (!(await this.receiptExists(verificationId))) throw new Error("Midnight transaction finalized but ShieldRate receipt was not found in indexed ledger state.");
 
     return {
       verificationId,
@@ -146,9 +222,62 @@ export class ShieldRateAPI {
     };
   }
 
+  async verifyRegisteredWorkPolicy(workRequestId: Uint8Array, state: ShieldRatePrivateState): Promise<LiveWorkQualificationReceipt> {
+    await this.setPrivateState(state);
+    const chainState = await this.providers.publicDataProvider.queryContractState(this.contractAddress);
+    if (!chainState) throw new Error("ShieldRate contract state is unavailable.");
+    const ledger = ShieldRateContract.ledger(chainState.data);
+    if (!ledger.workRequests.member(workRequestId)) throw new Error("Unknown ShieldRate work request.");
+    const request = ledger.workRequests.lookup(workRequestId);
+
+    const scopedSubject = ShieldRateContract.pureCircuits.deriveScopedSubject(
+      state.holderSecret,
+      request.employerPkh,
+      request.jobScope,
+    );
+    const nullifier = ShieldRateContract.pureCircuits.deriveWorkPolicyNullifier(
+      state.holderSecret,
+      request.employerPkh,
+      request.jobScope,
+    );
+    const verificationId = ShieldRateContract.pureCircuits.deriveWorkPolicyVerificationId(
+      workRequestId,
+      scopedSubject,
+      nullifier,
+    );
+
+    const tx = await this.callTx.verifyRegisteredWorkPolicy(workRequestId);
+    if (!(await this.workReceiptExists(verificationId))) {
+      throw new Error("Midnight transaction finalized but the ShieldRate qualification receipt was not found in indexed ledger state.");
+    }
+
+    return {
+      verificationId,
+      requestHash: workRequestId,
+      workRequestId,
+      scopedSubject,
+      nullifier,
+      providerId: state.attestationProviderId,
+      credentialExpiresAtEpoch: state.credential.expiresAtEpoch,
+      policyCode: request.policyCode,
+      txId: String(tx.public.txId),
+      blockHeight: tx.public.blockHeight,
+      contractAddress: this.contractAddress,
+    };
+  }
+
   async receiptExists(verificationId: Uint8Array): Promise<boolean> {
     const state = await this.providers.publicDataProvider.queryContractState(this.contractAddress);
-    if (!state) return false;
-    return ShieldRateContract.ledger(state.data).receipts.member(verificationId);
+    return !!state && ShieldRateContract.ledger(state.data).receipts.member(verificationId);
+  }
+
+  async workRequestExists(workRequestId: Uint8Array): Promise<boolean> {
+    const state = await this.providers.publicDataProvider.queryContractState(this.contractAddress);
+    return !!state && ShieldRateContract.ledger(state.data).workRequests.member(workRequestId);
+  }
+
+  async workReceiptExists(verificationId: Uint8Array): Promise<boolean> {
+    const state = await this.providers.publicDataProvider.queryContractState(this.contractAddress);
+    return !!state && ShieldRateContract.ledger(state.data).workReceipts.member(verificationId);
   }
 }

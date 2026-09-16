@@ -6,11 +6,14 @@ export const shieldRatePrivateStateKey = "shieldRatePrivateState" as const;
 export type ShieldRatePrivateStateId = typeof shieldRatePrivateStateKey;
 
 export type ShieldRateCircuitKeys =
+  | "callerPkh"
   | "registerProvider"
   | "rotateProviderEpoch"
   | "removeProvider"
+  | "registerWorkRequest"
+  | "cancelWorkRequest"
   | "verifyClaim"
-  | "receiptExists";
+  | "verifyRegisteredWorkPolicy";
 
 export type ShieldRateProviders = MidnightProviders<
   ShieldRateCircuitKeys,
