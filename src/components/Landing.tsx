@@ -31,10 +31,10 @@ export function Landing({ wallet, onConnect, onEnter, onMobile }: LandingProps) 
     <div className="app-shell security-field px-3 py-3 md:px-6 md:py-6">
       <div className="paper-panel mx-auto min-h-[calc(100vh-24px)] max-w-[1500px] overflow-hidden rounded-[2px] md:min-h-[calc(100vh-48px)]">
         <nav className="grid min-h-[76px] grid-cols-[1fr_auto] items-center border-b border-[var(--ink)] px-5 md:grid-cols-[1fr_auto_1fr] md:px-8 lg:px-11">
-          <button onClick={onEnter} className="flex items-center gap-3 text-left" aria-label="Open SealedFit">
+          <button onClick={onEnter} className="flex items-center gap-3 text-left" aria-label="Open Criterion">
             <BrandMark compact />
             <span>
-              <span className="trust-wordmark block text-[19px] text-[var(--ink)]">SEALEDFIT</span>
+              <span className="trust-wordmark block text-[19px] text-[var(--ink)]">CRITERION</span>
               <span className="evidence-mono mt-0.5 block text-[7px] uppercase tracking-[0.23em] text-[var(--muted)]">private qualification protocol</span>
             </span>
           </button>
@@ -57,7 +57,7 @@ export function Landing({ wallet, onConnect, onEnter, onMobile }: LandingProps) 
               <div className="pointer-events-none absolute -left-11 top-32 h-[290px] w-[290px] rounded-full border border-[rgba(43,97,113,.10)]" />
               <div className="relative z-10">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="micro-label">SF / COMMIT-BEFORE-KNOW</span>
+                  <span className="micro-label">CR / COMMIT-BEFORE-KNOW</span>
                   <span className="h-px w-12 bg-[var(--copper)]" />
                   <span className="evidence-mono text-[8px] font-bold uppercase tracking-[0.17em] text-[var(--verify)]">Midnight Preprod · verified</span>
                 </div>
@@ -71,7 +71,7 @@ export function Landing({ wallet, onConnect, onEnter, onMobile }: LandingProps) 
                 </h1>
 
                 <p className="mt-7 max-w-[650px] text-[16px] leading-7 text-[var(--ink-soft)]">
-                  SealedFit makes the employer commit the qualification standard before the worker proves anything. The public outcome is a scoped <strong>QUALIFIED</strong> receipt; the underlying income, rating and work history stay private.
+                  Criterion makes the employer commit the qualification standard before the worker proves anything. The public outcome is a scoped <strong>QUALIFIED</strong> receipt; the underlying income, rating and work history stay private.
                 </p>
 
                 <div className="mt-9 flex flex-wrap gap-3">
@@ -101,7 +101,7 @@ export function Landing({ wallet, onConnect, onEnter, onMobile }: LandingProps) 
 
             <div id="proof" className="guilloche relative flex items-center justify-center overflow-hidden px-5 py-12 md:px-10 xl:py-16">
               <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-12 border-r border-[rgba(16,44,49,.18)] bg-[rgba(43,97,113,.055)] xl:block">
-                <div className="receipt-serial evidence-mono absolute bottom-8 left-[16px] text-[7px] font-bold uppercase text-[rgba(16,44,49,.38)]">SF · COMMITTED FIRST · PRIVATE PROOF · INDEXED RECEIPT</div>
+                <div className="receipt-serial evidence-mono absolute bottom-8 left-[16px] text-[7px] font-bold uppercase text-[rgba(16,44,49,.38)]">CR · COMMITTED FIRST · PRIVATE PROOF · INDEXED RECEIPT</div>
               </div>
 
               <div className="proof-instrument-v2 receipt-hover cut-corner w-full max-w-[570px]" tabIndex={0}>
@@ -122,7 +122,7 @@ export function Landing({ wallet, onConnect, onEnter, onMobile }: LandingProps) 
                     <div className="grid gap-6 py-8 md:grid-cols-[1fr_auto] md:items-center">
                       <div>
                         <div className="micro-label">Committed standard</div>
-                        <div className="display-serif mt-2 text-[43px] leading-[.94] text-[var(--ink)]">SR-WORK-02<br />Proven professional</div>
+                        <div className="display-serif mt-2 text-[43px] leading-[.94] text-[var(--ink)]">Policy 02<br />Proven professional</div>
                         <div className="mt-4 flex flex-wrap gap-2">
                           <span className="rounded-full border border-[rgba(43,97,113,.35)] bg-[var(--mineral-bg)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[.1em] text-[var(--mineral)]">Committed before proof</span>
                           <span className="rounded-full border border-[rgba(105,91,120,.35)] bg-[var(--iris-bg)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[.1em] text-[var(--iris)]">Private evidence hidden</span>
