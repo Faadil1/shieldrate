@@ -2,7 +2,7 @@
 
 Resume from `Faadil1/shieldrate` on `winning-intelligence-v4`.
 
-Canonical state: `WINNING_INTELLIGENCE_V4 / V4_SOURCE_VALIDATED_OPERATOR_GATE_PENDING`.
+Canonical state: `WINNING_INTELLIGENCE_V4 / V4_BROWSER_RUNTIME_GATE_PATCHED_OPERATOR_RETEST_PENDING`.
 
 ## Product thesis
 
@@ -29,11 +29,14 @@ ShieldRate is deliberately differentiated from generic selective disclosure and 
 - indexed request/receipt verification after tx finalization;
 - V4 operator UI;
 - lazy-loaded Midnight runtime;
+- controlled deploy stages with bounded indexer waiting and submitted-deployment recovery;
+- wallet hosted prover preference with delegated prover fallback;
+- browser Buffer compatibility bootstrap before Midnight runtime execution;
 - refreshed Vite/Vitest toolchain with zero audit findings in the validated Node 22 gate.
 
-## Validation completed
+## Previously locked source validation
 
-CI run `35006331486` is the source-validation reference for the completed hardening sequence:
+CI run `35006331486` is the last fully locked source-validation reference before the browser compatibility patch:
 
 - Compact 0.31.1 compile PASS;
 - Node 20 typecheck PASS;
@@ -46,32 +49,40 @@ CI run `35006331486` is the source-validation reference for the completed harden
 
 Five of the 25 tests execute the generated Compact `Contract` directly. They cover millisecond-vs-second expiry, immutable employer/job policy, cancellation slot closure, and monotonic provider epochs.
 
-The seconds→milliseconds defect is fixed end-to-end in:
+## Latest supervised operator result — 2026-09-15
 
-- `src/midnight/runtime.ts`;
-- `src/hooks/useContract.ts`;
-- `scripts/issue-demo-credential.mjs`.
+The 1AM / Midnight Preprod browser test reached wallet connected + `preprod` + holder binding, but deploy failed with:
 
-The one-shot repair workflow/trigger was removed after the fix was committed.
+`Buffer is not defined`
 
-## Immediate continuation — external operator gate only
+Important interpretation:
 
-Opeyemi has two runbooks:
+- the failure happened before a deploy transaction was submitted;
+- no contract address or tx id was produced;
+- duplicate deployment protection was therefore not exercised yet;
+- it is safe to retest after the browser patch is published.
 
-- `docs/OPEYEMI-LIVE-GATE.md` — concise operator path;
-- `docs/REAL-TX-RUNBOOK.md` — full evidence procedure.
+Root cause is a browser/Node boundary: MidnightJS 4.x still contains runtime helpers using `Buffer.from(...)`, while Vite 8 does not inject Node globals.
 
-He must perform a real Lace/Preprod V4 run using a fresh job scope and `SR-WORK-02`, then return only public evidence:
+Repair now applied in `src/main.tsx`:
 
-1. network + contract address;
-2. provider id + registration tx/block;
-3. job scope + policy code 2;
-4. work request id + tx/block + millisecond expiry;
-5. indexed work request confirmation;
-6. qualification verification id + tx/block;
-7. independently indexed `workReceiptExists=true`.
+- import `Buffer` from the existing `buffer` dependency;
+- install `globalThis.Buffer` before React and before any lazy Midnight runtime import can execute.
 
-Only after those values are independently checked may we create:
+Do not treat this repair as network evidence by itself.
+
+## Immediate continuation
+
+1. Confirm CI and GitHub Pages pass for the Buffer bootstrap commit.
+2. Hard refresh `https://faadil1.github.io/shieldrate/`.
+3. Reconnect 1AM on `preprod`.
+4. Click `Deploy ShieldRate contract` exactly once.
+5. Record the last explicit stage shown: `PREPARING`, `PROVING`, `BALANCING`, `SUBMITTING`, `INDEXING`, `JOINING`, or `READY`.
+6. If `SUBMITTING` errors or times out, do not blindly click again; inspect wallet activity first.
+7. If `INDEXING` times out, the submitted deployment is persisted and recovery should be used rather than redeploying.
+8. If `READY`, continue the canonical gate: provider registration → employer work request → private qualification → independent indexed `workReceipts` confirmation.
+
+Only after those public values are independently checked may we create:
 
 `evidence/network/V4-COMMIT-BEFORE-KNOW-PREPROD-<date>.md`
 
@@ -79,19 +90,11 @@ and promote the exact canonical flow from `LIVE_PENDING` to `NETWORK_VERIFIED`.
 
 ## TRACE gate
 
-Do not start the next TRACE UI/UX redesign before the operator evidence gate is closed. The agreed order is intentional:
+Do not start the next TRACE UI/UX redesign before the operator evidence gate is closed.
 
-`source lock → real request → real proof → indexed receipt → evidence lock → TRACE UI/UX`
+Required order:
 
-This prevents presentation work from getting ahead of the trust claim.
-
-## Competitive reminder
-
-Reviewed public Wave 1 projects already cover private eligibility, compensation, compliance, claims and generic selective disclosure. In the Wave 1 repositories reviewed, Commit-Before-Know, failure privacy and verifier-policy audit without rejected-worker surveillance remain ShieldRate's differentiated territory.
-
-## Future white space
-
-Federated/multi-source work evidence is the strongest next protocol expansion after V4 live evidence is locked. Do not claim it as shipped in Wave 1 unless it is actually implemented, compiled, tested and demonstrated.
+`browser runtime repair → deploy retest → real request → real proof → indexed receipt → evidence lock → TRACE UI/UX`
 
 ## Truth boundary
 
