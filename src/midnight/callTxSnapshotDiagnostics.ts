@@ -1,6 +1,10 @@
+import { createUnprovenCallTx } from "@midnight-ntwrk/midnight-js-contracts";
 import type { ContractAddress } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
 import * as ShieldRateGenerated from "../../.compact-build/shieldrate/contract/index.js";
+import { CompiledShieldRateContract } from "./contract";
 import { initializeShieldRateProviders } from "./providers";
+import { shieldRatePrivateStateKey } from "./types";
+import { createShieldRatePrivateState } from "./witnesses";
 
 const hex = (bytes: Uint8Array): string =>
   Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
@@ -59,4 +63,99 @@ export async function inspectCallTxSnapshot(
       ? hex(ledger.jobRequests.lookup(jobKey))
       : null,
   };
+}
+
+export interface RuntimeBindingDiagnostic {
+  connected: boolean;
+  networkId: string | null;
+  activeContractAddress: string | null;
+  rememberedContractAddress: string | null;
+  hasAttestedCredential: boolean;
+}
+
+/** Read only: reports the contract address held by the actual runtime module. */
+export async function inspectRuntimeBinding(): Promise<RuntimeBindingDiagnostic> {
+  const runtime = await import("./runtime");
+  const snapshot = runtime.getMidnightRuntimeSnapshot();
+  return {
+    connected: snapshot.connected,
+    networkId: snapshot.wallet?.networkId ?? null,
+    activeContractAddress: snapshot.contractAddress,
+    rememberedContractAddress: sessionStorage.getItem("shieldrate.midnight.contract-address.v1"),
+    hasAttestedCredential: snapshot.hasAttestedCredential,
+  };
+}
+
+export interface UnprovenWorkRequestDiagnostic {
+  jobId: string;
+  jobScope: string;
+  policyCode: string;
+  requestExpiresAtEpoch: string;
+  workRequestId: string;
+  prepared: boolean;
+  circuitResultWorkRequestId: string | null;
+  error: string | null;
+}
+
+/**
+ * Execute MidnightJS createUnprovenCallTx() for registerWorkRequest and stop
+ * before proving, balancing, wallet signing, or submission. This is a local
+ * transaction-construction reproducer only; it cannot write chain state.
+ */
+export async function simulateUnprovenWorkRequest(
+  contractAddress: string,
+  jobId: string,
+  policyCode = 2,
+): Promise<UnprovenWorkRequestDiagnostic> {
+  const { providers } = await initializeShieldRateProviders();
+  const address = contractAddress as ContractAddress;
+  const privateState = createShieldRatePrivateState();
+  providers.privateStateProvider.setContractAddress(address);
+  await providers.privateStateProvider.set(shieldRatePrivateStateKey, privateState);
+
+  const jobScope = await hash32(`shieldrate:job:v1|${jobId}`);
+  const challenge = await hash32(`shieldrate:diagnostic:challenge:v1|${jobId}`);
+  const requestNonce = await hash32(`shieldrate:diagnostic:nonce:v1|${jobId}`);
+  const requestExpiresAtEpoch = BigInt(Math.floor(Date.now() / 1000) + 600);
+  const policy = BigInt(policyCode);
+  const workRequestId = ShieldRateGenerated.pureCircuits.deriveWorkRequestId(
+    jobScope,
+    policy,
+    challenge,
+    requestNonce,
+    requestExpiresAtEpoch,
+  );
+
+  try {
+    const unproven = await createUnprovenCallTx(providers as any, {
+      compiledContract: CompiledShieldRateContract,
+      contractAddress: address,
+      circuitId: "registerWorkRequest" as any,
+      privateStateId: shieldRatePrivateStateKey,
+      args: [jobScope, policy, challenge, requestNonce, requestExpiresAtEpoch] as any,
+    } as any);
+
+    const result = unproven.private.result as Uint8Array;
+    return {
+      jobId,
+      jobScope: hex(jobScope),
+      policyCode: policy.toString(),
+      requestExpiresAtEpoch: requestExpiresAtEpoch.toString(),
+      workRequestId: hex(workRequestId),
+      prepared: true,
+      circuitResultWorkRequestId: result instanceof Uint8Array ? hex(result) : null,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      jobId,
+      jobScope: hex(jobScope),
+      policyCode: policy.toString(),
+      requestExpiresAtEpoch: requestExpiresAtEpoch.toString(),
+      workRequestId: hex(workRequestId),
+      prepared: false,
+      circuitResultWorkRequestId: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
